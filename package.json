@@ -1,0 +1,21 @@
+{
+  "name": "foto-challenge",
+  "version": "1.0.0",
+  "description": "Foto-Challenge — party photo-challenge web app",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.8.1",
+    "cookie-parser": "^1.4.7",
+    "express": "^4.21.2",
+    "multer": "^2.0.1",
+    "qrcode": "^1.5.4"
+  }
+}
