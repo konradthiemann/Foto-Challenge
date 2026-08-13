@@ -1,0 +1,28 @@
+{
+  "name": "Foto-Challenge",
+  "short_name": "Foto-Challenge",
+  "description": "Party-Foto-Challenge: Aufgabe bekommen, Foto machen, in die gemeinsame Galerie.",
+  "lang": "de",
+  "dir": "ltr",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#161826",
+  "theme_color": "#161826",
+  "categories": ["photo", "social", "entertainment"],
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

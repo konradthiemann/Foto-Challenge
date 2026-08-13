@@ -5,6 +5,7 @@ import express from 'express';
 import cookieParser from 'cookie-parser';
 import multer from 'multer';
 import QRCode from 'qrcode';
+import sharp from 'sharp';
 
 import db, { UPLOAD_DIR } from './db.js';
 import { TASKS, taskById } from './tasks.js';
@@ -149,6 +150,25 @@ const upload = multer({
 // ─────────────────────────────────────────────────────────────────────────
 
 app.use(express.static(PUBLIC_DIR, { index: false, extensions: ['html'] }));
+
+// iOS home-screen icon: Safari ignores SVG apple-touch-icons, so render a PNG
+// from the app icon once and cache it in memory.
+let appleTouchIconPng = null;
+app.get('/apple-touch-icon.png', async (req, res, next) => {
+  try {
+    if (!appleTouchIconPng) {
+      const svg = fs.readFileSync(path.join(PUBLIC_DIR, 'icon.svg'));
+      appleTouchIconPng = await sharp(svg)
+        .resize(180, 180)
+        .flatten({ background: '#161826' })
+        .png()
+        .toBuffer();
+    }
+    res.type('image/png').set('Cache-Control', 'public, max-age=604800').send(appleTouchIconPng);
+  } catch (err) {
+    next(err);
+  }
+});
 
 // ─────────────────────────────────────────────────────────────────────────
 // API — health

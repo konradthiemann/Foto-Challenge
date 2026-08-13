@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="Foto-Challenge">
+  <defs>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e2c479"/>
+      <stop offset="1" stop-color="#c9a44e"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="#161826"/>
+  <g fill="none" stroke="url(#gold)" stroke-width="24" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M120 190 h60 l26 -34 h100 l26 34 h60 a24 24 0 0 1 24 24 v148 a24 24 0 0 1 -24 24 H120 a24 24 0 0 1 -24 -24 V214 a24 24 0 0 1 24 -24 Z"/>
+    <circle cx="256" cy="288" r="58"/>
+  </g>
+  <circle cx="366" cy="222" r="12" fill="url(#gold)"/>
+</svg>
