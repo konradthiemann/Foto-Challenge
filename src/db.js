@@ -18,6 +18,7 @@ db.exec(`
     guest_limit         INTEGER NOT NULL DEFAULT 20,
     guest_password_hash TEXT,
     host_token          TEXT NOT NULL,
+    join_code           TEXT,
     created_at          INTEGER NOT NULL
   );
 
@@ -47,5 +48,13 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_guests_event ON guests(event_id);
   CREATE INDEX IF NOT EXISTS idx_photos_event ON photos(event_id, created_at DESC);
 `);
+
+// Migration: add join_code to events created before short codes existed.
+const eventCols = db.prepare('PRAGMA table_info(events)').all();
+if (!eventCols.some((c) => c.name === 'join_code')) {
+  db.exec('ALTER TABLE events ADD COLUMN join_code TEXT');
+}
+// NULLs are allowed to repeat in a SQLite unique index, so this is safe before backfill.
+db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_events_join_code ON events(join_code)');
 
 export default db;

@@ -83,11 +83,103 @@ function renderStart() {
       <p class="lead" style="margin-top:12px">Kleine Aufgaben, echte Momente. Spielt gemeinsam durch den Abend.</p>
       <div class="grow"></div>
       <button class="pri" id="scan"><i class="ph-fill ph-qr-code"></i>QR-Code scannen</button>
-      <button class="sec mt" id="host">Als Gastgeber starten</button>
+      <div class="or">oder Code eingeben</div>
+      <div class="codejoin">
+        <input class="nm code-input" id="code" placeholder="ABCDE" maxlength="5"
+          autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false" inputmode="text">
+        <button class="join-btn" id="join" aria-label="Beitreten"><i class="ph-fill ph-arrow-right"></i></button>
+      </div>
+      <button class="sec mt-lg" id="host">Als Gastgeber starten</button>
       <div style="height:20px"></div>
     </div>`;
-  document.getElementById('scan').onclick = () => toast('Öffne die Kamera deines Handys und scanne den QR-Code des Gastgebers.');
+  document.getElementById('scan').onclick = openScanner;
   document.getElementById('host').onclick = () => navigate('/host');
+
+  const codeEl = document.getElementById('code');
+  const joinByCode = () => {
+    const code = codeEl.value.trim().toLowerCase();
+    if (!code) { codeEl.focus(); return; }
+    navigate(`/${encodeURIComponent(code)}`);
+  };
+  document.getElementById('join').onclick = joinByCode;
+  codeEl.onkeydown = (e) => { if (e.key === 'Enter') joinByCode(); };
+}
+
+// Lazily load an external script once, resolving when it is ready.
+const loadedScripts = {};
+function loadScript(src) {
+  if (loadedScripts[src]) return loadedScripts[src];
+  loadedScripts[src] = new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = src;
+    s.onload = resolve;
+    s.onerror = () => { delete loadedScripts[src]; reject(new Error('load failed')); };
+    document.head.appendChild(s);
+  });
+  return loadedScripts[src];
+}
+
+// Extract an event slug or join code from scanned QR text (a join URL or raw code).
+function segFromScan(data) {
+  const raw = String(data || '').trim();
+  try {
+    const u = new URL(raw);
+    const parts = u.pathname.split('/').filter(Boolean);
+    if (parts.length) return parts[parts.length - 1].toLowerCase();
+  } catch { /* not a URL — fall through */ }
+  const s = raw.toLowerCase();
+  return /^[a-z0-9-]{3,40}$/.test(s) ? s : null;
+}
+
+// In-app QR scanner: live camera + jsQR decoding, no external camera app needed.
+async function openScanner() {
+  const ov = document.createElement('div');
+  ov.className = 'scanner';
+  ov.innerHTML = `
+    <video playsinline muted></video>
+    <div class="scanframe"></div>
+    <div class="scanhint">QR-Code des Gastgebers ins Feld halten</div>
+    <button class="scanclose" aria-label="Schließen"><i class="ph ph-x"></i></button>`;
+  document.body.appendChild(ov);
+  const video = ov.querySelector('video');
+  let stream = null;
+  let raf = 0;
+  let active = true;
+  const stop = () => {
+    active = false;
+    if (raf) cancelAnimationFrame(raf);
+    if (stream) stream.getTracks().forEach((t) => t.stop());
+    ov.remove();
+  };
+  ov.querySelector('.scanclose').onclick = stop;
+
+  try {
+    await loadScript('https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js');
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    video.srcObject = stream;
+    await video.play();
+  } catch {
+    stop();
+    toast('Kamera nicht verfügbar. Gib den Code manuell ein.');
+    return;
+  }
+
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  const tick = () => {
+    if (!active) return;
+    if (video.readyState >= video.HAVE_ENOUGH_DATA && window.jsQR) {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const found = window.jsQR(img.data, img.width, img.height, { inversionAttempts: 'dontInvert' });
+      const seg = found && found.data ? segFromScan(found.data) : null;
+      if (seg) { stop(); navigate(`/${encodeURIComponent(seg)}`); return; }
+    }
+    raf = requestAnimationFrame(tick);
+  };
+  raf = requestAnimationFrame(tick);
 }
 
 // ── Guest flow ──────────────────────────────────────────────────────────────
@@ -104,6 +196,13 @@ async function renderGuest(id) {
     if (info.status === 404) return renderNotFound();
     if (!info.ok) return renderError();
     state.info = info.data;
+    // The guest may have entered a short join code — switch the URL to the
+    // canonical event slug so cookies and further API calls stay consistent.
+    if (info.data.id && info.data.id !== id) {
+      id = info.data.id;
+      state.eventId = id;
+      history.replaceState({}, '', `/${id}`);
+    }
     const me = await api('GET', `/api/events/${id}/me`);
     if (me.ok) {
       state.me = me.data;
@@ -540,6 +639,7 @@ function hostInvite() {
       <p class="muted" style="font-size:13px;margin:0">Scannen, Namen eingeben, mitspielen.</p>
       <div class="qrwrap"><img src="/api/host/events/${id}/qr.svg" alt="QR-Code" style="width:100%;height:100%"></div>
       <div class="linkline"><i class="ph ph-link-simple"></i>${esc(joinUrl.replace(/^https?:\/\//, ''))}</div>
+      ${state.stats.joinCode ? `<div class="codeline">oder Code <b>${esc(state.stats.joinCode)}</b></div>` : ''}
       <div class="grow"></div>
       ${token ? `<a class="pri" href="/host/${id}/print?t=${encodeURIComponent(token)}" target="_blank" rel="noopener"><i class="ph-fill ph-printer"></i>Plakat drucken</a>` : ''}
       <button class="sec mt" id="copy"><i class="ph ph-copy"></i>Link kopieren</button>

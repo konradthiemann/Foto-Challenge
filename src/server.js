@@ -1,5 +1,6 @@
 import path from 'node:path';
 import fs from 'node:fs';
+import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
 import cookieParser from 'cookie-parser';
@@ -64,6 +65,37 @@ function uniqueEventId(name) {
 
 function getEvent(id) {
   return db.prepare('SELECT * FROM events WHERE id = ?').get(id);
+}
+
+// Guests can reach an event either by its slug (/annette-und-bjorn) or by its
+// short join code (/ab3k9). Both are stored lowercase.
+function getEventByIdOrCode(seg) {
+  const s = String(seg || '').trim().toLowerCase();
+  if (!s) return null;
+  return db.prepare('SELECT * FROM events WHERE id = ? OR join_code = ?').get(s, s);
+}
+
+// Short join code: 5 chars, mixed letters+digits, ambiguous characters removed
+// (no 0/o, 1/l/i) so it is easy to read off a poster and type. Stored lowercase.
+const CODE_ALPHABET = 'abcdefghjkmnpqrstuvwxyz23456789';
+
+function generateJoinCode() {
+  const clash = db.prepare('SELECT 1 FROM events WHERE id = ? OR join_code = ?');
+  for (let attempt = 0; attempt < 100; attempt++) {
+    const bytes = crypto.randomBytes(5);
+    let code = '';
+    for (let i = 0; i < 5; i++) code += CODE_ALPHABET[bytes[i] % CODE_ALPHABET.length];
+    if (!clash.get(code, code)) return code;
+  }
+  throw new Error('could not generate a unique join code');
+}
+
+// Backfill codes for events created before the feature existed.
+{
+  const setCode = db.prepare('UPDATE events SET join_code = ? WHERE id = ?');
+  for (const row of db.prepare('SELECT id FROM events WHERE join_code IS NULL').all()) {
+    setCode.run(generateJoinCode(), row.id);
+  }
 }
 
 function guestCount(eventId) {
@@ -190,16 +222,18 @@ app.post('/api/host/events', (req, res) => {
 
   const id = uniqueEventId(name);
   const hostToken = randomId(16);
+  const joinCode = generateJoinCode();
   db.prepare(`
-    INSERT INTO events (id, name, guest_limit, guest_password_hash, host_token, created_at)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `).run(id, name, guestLimit, hashPassword(password), hostToken, Date.now());
+    INSERT INTO events (id, name, guest_limit, guest_password_hash, host_token, join_code, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(id, name, guestLimit, hashPassword(password), hostToken, joinCode, Date.now());
 
   res.cookie(hostCookieName(id), signToken({ eventId: id, host: true }), COOKIE_BASE);
 
   res.json({
     eventId: id,
     hostToken,
+    joinCode: joinCode.toUpperCase(),
     joinUrl: `${baseUrl(req)}/${id}`,
     hostUrl: `${baseUrl(req)}/host/${id}?t=${hostToken}`,
   });
@@ -227,6 +261,7 @@ app.get('/api/host/events/:id/stats', requireHost, (req, res) => {
   }));
   res.json({
     name: ev.name,
+    joinCode: (ev.join_code || '').toUpperCase(),
     guestLimit: ev.guest_limit,
     guestCount: guests.length,
     photoCount: photoCount(ev.id),
@@ -253,11 +288,12 @@ app.get('/api/host/events/:id/qr.svg', async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────
 
 app.get('/api/events/:id/info', (req, res) => {
-  const ev = getEvent(req.params.id);
+  const ev = getEventByIdOrCode(req.params.id);
   if (!ev) return res.status(404).json({ error: 'not_found' });
   res.json({
     id: ev.id,
     name: ev.name,
+    joinCode: (ev.join_code || '').toUpperCase(),
     guestLimit: ev.guest_limit,
     guestCount: guestCount(ev.id),
     requiresPassword: !!ev.guest_password_hash,
@@ -391,6 +427,8 @@ app.get('/host/:id/print', async (req, res) => {
         border: 2px solid #eee; box-shadow: 0 10px 30px rgba(0,0,0,.12); }
   .qr svg { width: 100%; height: 100%; }
   .link { margin-top: 24px; font-size: 20px; font-weight: 600; }
+  .code { margin-top: 12px; font-size: 15px; color: #444; }
+  .code b { font-size: 26px; letter-spacing: .14em; color: #161826; font-weight: 700; }
   .steps { margin: 26px auto 0; max-width: 380px; text-align: left; font-size: 15px; color: #333; }
   .steps li { margin: 8px 0; }
   .print-btn { margin-top: 30px; padding: 12px 22px; font-size: 15px; border: 1px solid #c9a44e;
@@ -404,8 +442,9 @@ app.get('/host/:id/print', async (req, res) => {
     <p class="lead">Scannen, Namen eingeben, mitspielen.</p>
     <div class="qr">${qr}</div>
     <div class="link">${esc(joinUrl.replace(/^https?:\/\//, ''))}</div>
+    ${ev.join_code ? `<div class="code">oder Code <b>${esc(ev.join_code.toUpperCase())}</b> eingeben</div>` : ''}
     <ol class="steps">
-      <li>QR-Code mit der Handykamera scannen.</li>
+      <li>QR-Code scannen — mit der Foto-Challenge-App oder der Handykamera.</li>
       <li>Namen eingeben${ev.guest_password_hash ? ' und das Party-Passwort eintippen' : ''}.</li>
       <li>Aufgabe bekommen, Foto machen, in die Galerie!</li>
     </ol>

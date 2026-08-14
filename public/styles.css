@@ -214,6 +214,35 @@ input.nm:focus { border-color: var(--gold); }
 .linkline i { color: var(--gold); }
 .pwline { margin-top: 10px; font: 400 13px var(--font-body); color: var(--color-neutral-500); }
 .pwline b { color: var(--gold-bright); font-weight: 600; letter-spacing: .04em; }
+.codeline { margin-top: 12px; font: 400 14px var(--font-body); color: var(--color-neutral-400); }
+.codeline b { font: 700 20px var(--font-heading); color: var(--gold-bright); letter-spacing: .16em; }
+
+/* — Code entry (start screen) — */
+.or { margin: 16px 0 10px; font: 500 11px var(--font-body); letter-spacing: .1em; text-transform: uppercase; color: var(--color-neutral-600); }
+.codejoin { display: flex; gap: 10px; width: 100%; }
+.codejoin .code-input { flex: 1; min-width: 0; }
+.code-input { text-transform: uppercase; text-align: center; letter-spacing: .3em; font: 600 18px var(--font-heading); }
+.code-input::placeholder { letter-spacing: .3em; color: var(--color-neutral-700); }
+.join-btn {
+  flex: 0 0 54px; width: 54px; height: 54px; border: 0; border-radius: var(--radius);
+  background: linear-gradient(180deg, var(--gold-bright), var(--gold)); color: #161826;
+  font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+}
+.join-btn:active { filter: brightness(.94); }
+
+/* — In-app QR scanner overlay — */
+.scanner { position: fixed; inset: 0; z-index: 60; background: #000; display: flex; align-items: center; justify-content: center; }
+.scanner video { width: 100%; height: 100%; object-fit: cover; }
+.scanframe {
+  position: absolute; width: 64vw; max-width: 300px; aspect-ratio: 1;
+  border: 2px solid var(--gold); border-radius: 22px; box-shadow: 0 0 0 100vmax rgba(0,0,0,.5);
+}
+.scanhint { position: absolute; bottom: 15%; left: 0; right: 0; text-align: center; padding: 0 28px; font: 500 14px var(--font-body); color: #fff; }
+.scanclose {
+  position: absolute; top: max(20px, env(safe-area-inset-top)); right: 20px;
+  width: 44px; height: 44px; border-radius: 50%; border: 0; background: rgba(0,0,0,.55);
+  color: #fff; font-size: 22px; display: flex; align-items: center; justify-content: center; cursor: pointer;
+}
 
 /* — Loading dots — */
 .loading { display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--color-neutral-500); flex: 1; }
