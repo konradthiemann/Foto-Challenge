@@ -244,6 +244,15 @@ input.nm:focus { border-color: var(--gold); }
   color: #fff; font-size: 22px; display: flex; align-items: center; justify-content: center; cursor: pointer;
 }
 
+/* — Back button (top-left, on screens without bottom nav) — */
+.backbtn {
+  display: inline-flex; align-items: center; gap: 10px; align-self: flex-start;
+  margin: -6px 0 10px; padding: 6px 4px 6px 0; border: 0; background: transparent;
+  color: var(--color-neutral-400); cursor: pointer; font: 500 13px var(--font-body);
+}
+.backbtn i { font-size: 20px; }
+.backbtn:hover { color: var(--color-text); }
+
 /* — Loading dots — */
 .loading { display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--color-neutral-500); flex: 1; }
 

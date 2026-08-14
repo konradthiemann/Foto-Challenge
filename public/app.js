@@ -41,6 +41,12 @@ function navigate(path) {
   render();
 }
 
+// Top-left back button for screens without a bottom nav. Wire its onclick after
+// inserting it (root.querySelector('.backbtn')).
+function backButton(label) {
+  return `<button class="backbtn" type="button"><i class="ph ph-arrow-left"></i><span>${esc(label)}</span></button>`;
+}
+
 document.addEventListener('contextmenu', (e) => {
   if (e.target && e.target.tagName === 'IMG' && e.target.classList.contains('protected')) {
     e.preventDefault();
@@ -252,6 +258,7 @@ function screenJoin() {
     <input class="nm" id="pw" type="password" placeholder="Passwort vom Gastgeber" autocomplete="off">` : '';
   root.innerHTML = `
     <div class="screen">
+      ${backButton('Startseite')}
       <span class="kick">Du trittst bei</span>
       <h2 class="title" style="margin:14px 0 4px">${esc(info.name)}</h2>
       <p class="muted" style="font-size:13px;margin:0">Verbunden über QR-Code · ${info.guestCount} Gäste dabei</p>
@@ -267,6 +274,7 @@ function screenJoin() {
     </div>`;
   const nameEl = document.getElementById('name');
   nameEl.focus();
+  root.querySelector('.backbtn').onclick = () => navigate('/');
   document.getElementById('go').onclick = doJoin;
   nameEl.onkeydown = (e) => { if (e.key === 'Enter' && !info.requiresPassword) doJoin(); };
 }
@@ -352,6 +360,7 @@ function screenCapture() {
   const { task } = state.me;
   root.innerHTML = `
     <div class="screen">
+      ${backButton('Zur Aufgabe')}
       <div class="uppermeta">Aufnahme prüfen</div>
       <div class="preview noselect">
         <img class="protected" draggable="false" src="${state.selectedUrl}" alt="">
@@ -361,6 +370,12 @@ function screenCapture() {
       <button class="sec mt" id="retake">Neu aufnehmen</button>
       <div style="height:8px"></div>
     </div>`;
+  root.querySelector('.backbtn').onclick = () => {
+    if (state.selectedUrl) { URL.revokeObjectURL(state.selectedUrl); state.selectedUrl = null; }
+    state.selectedFile = null;
+    state.guestScreen = 'task';
+    renderGuestScreen();
+  };
   document.getElementById('save').onclick = savePhoto;
   document.getElementById('retake').onclick = openCamera;
 }
@@ -490,6 +505,7 @@ function renderHostCreate() {
   let guests = 20;
   root.innerHTML = `
     <div class="screen">
+      ${backButton('Startseite')}
       <span class="kick">Neue Session</span>
       <h2 class="title" style="margin:12px 0 24px">Wie groß wird gefeiert?</h2>
 
@@ -524,6 +540,7 @@ function renderHostCreate() {
     document.getElementById('gval2').textContent = guests;
     document.getElementById('price').textContent = `${price(guests)} €`;
   };
+  root.querySelector('.backbtn').onclick = () => navigate('/');
   document.getElementById('dec').onclick = () => { guests = Math.max(5, guests - 5); sync(); };
   document.getElementById('inc').onclick = () => { guests = Math.min(200, guests + 5); sync(); };
   document.getElementById('go').onclick = async () => {
