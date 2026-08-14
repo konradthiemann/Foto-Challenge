@@ -3,7 +3,10 @@
 **Party photo-challenge web app** — Gäste scannen einen QR-Code, geben ihren Namen ein, bekommen eine Foto-Aufgabe, machen ein Foto und es landet in einer gemeinsamen, passwortgeschützten Event-Galerie.
 
 🌐 **Live:** <https://foto-challenge-production.up.railway.app>
+📖 **Dokumentation:** <https://konradthiemann.github.io/Foto-Challenge/>
 
+[![CI](https://github.com/konradthiemann/Foto-Challenge/actions/workflows/ci.yml/badge.svg)](https://github.com/konradthiemann/Foto-Challenge/actions/workflows/ci.yml)
+[![Docs](https://github.com/konradthiemann/Foto-Challenge/actions/workflows/pages.yml/badge.svg)](https://github.com/konradthiemann/Foto-Challenge/actions/workflows/pages.yml)
 ![Node.js 22.x](https://img.shields.io/badge/Node.js-22.x-339933?logo=nodedotjs&logoColor=white)
 ![Express 4](https://img.shields.io/badge/Express-4.21-000000?logo=express&logoColor=white)
 ![SQLite](https://img.shields.io/badge/SQLite-better--sqlite3-003B57?logo=sqlite&logoColor=white)

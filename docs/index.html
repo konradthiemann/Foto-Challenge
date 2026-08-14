@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Foto-Challenge — Dokumentation</title>
+  <meta name="description" content="Dokumentation der Foto-Challenge Party-App: QR-Code, Foto-Aufgaben und passwortgeschützte Event-Galerie." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --ground: #161826;
+      --surface: #1e2133;
+      --surface-2: #252942;
+      --border: #2f3450;
+      --text: #e8e9f0;
+      --muted: #9aa0bd;
+      --gold: #c9a44e;
+      --gold-bright: #e2c479;
+      --radius: 14px;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, -apple-system, sans-serif;
+      background: var(--ground);
+      color: var(--text);
+      line-height: 1.65;
+    }
+    a { color: var(--gold-bright); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code {
+      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      background: var(--surface-2);
+      padding: 0.15em 0.4em;
+      border-radius: 6px;
+      font-size: 0.88em;
+      color: var(--gold-bright);
+    }
+    pre {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem 1.2rem;
+      overflow-x: auto;
+    }
+    pre code { background: none; padding: 0; color: var(--text); }
+    .wrap { max-width: 880px; margin: 0 auto; padding: 0 1.5rem; }
+
+    header.hero {
+      background: radial-gradient(1200px 400px at 50% -10%, rgba(201,164,78,0.18), transparent),
+                  var(--ground);
+      border-bottom: 1px solid var(--border);
+      padding: 5rem 0 3.5rem;
+      text-align: center;
+    }
+    .badge-emoji { font-size: 3.2rem; }
+    header.hero h1 {
+      font-size: clamp(2.2rem, 5vw, 3.2rem);
+      margin: 0.5rem 0 0.3rem;
+      background: linear-gradient(90deg, var(--gold), var(--gold-bright));
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    header.hero p.tagline { color: var(--muted); font-size: 1.15rem; max-width: 620px; margin: 0.5rem auto 1.8rem; }
+    .cta { display: inline-flex; gap: 0.8rem; flex-wrap: wrap; justify-content: center; }
+    .btn {
+      display: inline-block;
+      padding: 0.7rem 1.4rem;
+      border-radius: 999px;
+      font-weight: 600;
+      border: 1px solid var(--border);
+    }
+    .btn-primary { background: linear-gradient(90deg, var(--gold), var(--gold-bright)); color: #201a08; border: none; }
+    .btn-primary:hover { text-decoration: none; filter: brightness(1.05); }
+    .btn-ghost { background: var(--surface); color: var(--text); }
+    .btn-ghost:hover { text-decoration: none; border-color: var(--gold); }
+
+    nav.toc {
+      position: sticky; top: 0; z-index: 10;
+      background: rgba(22,24,38,0.9);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--border);
+      padding: 0.7rem 0;
+    }
+    nav.toc .wrap { display: flex; gap: 1.2rem; flex-wrap: wrap; font-size: 0.92rem; }
+    nav.toc a { color: var(--muted); }
+    nav.toc a:hover { color: var(--gold-bright); text-decoration: none; }
+
+    section { padding: 3rem 0; border-bottom: 1px solid var(--border); }
+    section h2 {
+      font-size: 1.8rem;
+      margin: 0 0 1.2rem;
+      display: flex; align-items: center; gap: 0.6rem;
+    }
+    section h3 { font-size: 1.2rem; margin: 1.8rem 0 0.6rem; color: var(--gold-bright); }
+
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 1rem; }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.2rem 1.3rem;
+    }
+    .card h4 { margin: 0 0 0.4rem; color: var(--gold-bright); font-size: 1.02rem; }
+    .card p { margin: 0; color: var(--muted); font-size: 0.94rem; }
+
+    ol.steps { counter-reset: step; list-style: none; padding: 0; }
+    ol.steps li {
+      position: relative; padding: 0.6rem 0 0.6rem 2.6rem; counter-increment: step;
+    }
+    ol.steps li::before {
+      content: counter(step);
+      position: absolute; left: 0; top: 0.5rem;
+      width: 1.8rem; height: 1.8rem;
+      display: grid; place-items: center;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--gold), var(--gold-bright));
+      color: #201a08; font-weight: 700; font-size: 0.9rem;
+    }
+
+    table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+    th, td { text-align: left; padding: 0.6rem 0.7rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+    th { color: var(--gold-bright); font-weight: 600; }
+    td code { white-space: nowrap; }
+
+    .note {
+      background: var(--surface-2);
+      border-left: 3px solid var(--gold);
+      border-radius: 8px;
+      padding: 0.9rem 1.1rem;
+      color: var(--muted);
+      font-size: 0.94rem;
+    }
+    dl.env { display: grid; grid-template-columns: max-content 1fr; gap: 0.5rem 1.2rem; }
+    dl.env dt { color: var(--gold-bright); font-family: ui-monospace, monospace; font-size: 0.9rem; }
+    dl.env dd { margin: 0; color: var(--muted); font-size: 0.94rem; }
+
+    footer { padding: 2.5rem 0; text-align: center; color: var(--muted); font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <div class="wrap">
+      <div class="badge-emoji">📸</div>
+      <h1>Foto-Challenge</h1>
+      <p class="tagline">Party-Foto-App: Gäste scannen einen QR-Code, bekommen eine Foto-Aufgabe und teilen sie in einer gemeinsamen, passwortgeschützten Event-Galerie.</p>
+      <div class="cta">
+        <a class="btn btn-primary" href="https://foto-challenge-production.up.railway.app">Live-App öffnen</a>
+        <a class="btn btn-ghost" href="https://github.com/konradthiemann/Foto-Challenge">GitHub-Repo</a>
+      </div>
+    </div>
+  </header>
+
+  <nav class="toc">
+    <div class="wrap">
+      <a href="#about">Über</a>
+      <a href="#features">Features</a>
+      <a href="#flows">Abläufe</a>
+      <a href="#stack">Tech-Stack</a>
+      <a href="#api">API</a>
+      <a href="#auth">Auth</a>
+      <a href="#setup">Setup</a>
+      <a href="#deploy">Deployment</a>
+    </div>
+  </nav>
+
+  <main class="wrap">
+    <section id="about">
+      <h2>🎯 Über die App</h2>
+      <p>Foto-Challenge ist eine Web-App für Partys, Hochzeiten und Feiern. Der Gastgeber legt eine Session an und erhält einen druckbaren QR-Code-Poster, das mehrfach in der Halle aufgehängt werden kann. Gäste scannen den Code, geben ihren Namen ein und bekommen aus einem Pool von 65 Foto-Aufgaben eine gestellt — Aufgaben, die die Gemeinschaft stärken und nie peinlich sind. Jedes Foto landet in einer gemeinsamen Galerie, die per Passwort geschützt ist.</p>
+      <div class="note">Kein App-Download, keine Registrierung. Für Gäste: QR scannen → Name → Aufgabe → Foto. Fotos sind auth-geschützt und best-effort nicht herunterladbar.</div>
+    </section>
+
+    <section id="features">
+      <h2>✨ Features</h2>
+      <div class="cards">
+        <div class="card"><h4>Gastgeber-Flow</h4><p>Event erstellen mit Name, Gästezahl sowie Galerie- und Gast-Passwort. Dashboard mit Übersicht, Galerie und Einladen.</p></div>
+        <div class="card"><h4>Druckbares QR-Poster</h4><p>Aufhängbares Poster mit QR-Code, der direkt auf die Beitritts-Seite des Events zeigt.</p></div>
+        <div class="card"><h4>65 Foto-Aufgaben</h4><p>Kuratiert und kategorisiert — gemeinschaftsstärkend statt peinlich. Gäste können die Aufgabe rotieren.</p></div>
+        <div class="card"><h4>Geschützte Galerie</h4><p>Fotos werden nur mit gültigem Gast- oder Gastgeber-Cookie inline ausgeliefert. Fremde werden geblockt.</p></div>
+        <div class="card"><h4>PWA</h4><p>Web-Manifest, Service Worker (App-Shell-Caching), iOS-Homescreen-Icon. Installierbar.</p></div>
+        <div class="card"><h4>Kein Build-Step</h4><p>Server-gerenderte SPA-Shell + Vanilla JS. Leichtgewichtiges Deployment.</p></div>
+      </div>
+    </section>
+
+    <section id="flows">
+      <h2>🔀 Abläufe</h2>
+      <h3>Gastgeber</h3>
+      <ol class="steps">
+        <li>Event erstellen (Name, Gästezahl, Passwörter) und <code>hostToken</code> erhalten.</li>
+        <li>Dashboard unter <code>/host/:id?t=TOKEN</code> öffnen.</li>
+        <li>QR-Poster drucken und in der Location aufhängen.</li>
+        <li>Fotos live in der Galerie mitverfolgen.</li>
+      </ol>
+      <h3>Gast</h3>
+      <ol class="steps">
+        <li>QR-Code scannen → Beitritts-Seite <code>/:id</code>.</li>
+        <li>Namen eingeben (+ Gast-Passwort).</li>
+        <li>Foto-Aufgabe erhalten (optional rotieren).</li>
+        <li>Foto aufnehmen → Erfolg → gemeinsame Galerie ansehen.</li>
+      </ol>
+    </section>
+
+    <section id="stack">
+      <h2>🧰 Technology Stack</h2>
+      <div class="cards">
+        <div class="card"><h4>Runtime</h4><p>Node.js 22.x (gepinnt für Prebuilt-Binaries)</p></div>
+        <div class="card"><h4>Server</h4><p>Express 4 (ESM)</p></div>
+        <div class="card"><h4>Datenbank</h4><p>SQLite via better-sqlite3</p></div>
+        <div class="card"><h4>Auth</h4><p>scrypt-Hashing + HMAC-signierte Cookies</p></div>
+        <div class="card"><h4>Uploads</h4><p>multer → Railway-Volume</p></div>
+        <div class="card"><h4>QR &amp; Bilder</h4><p>qrcode + sharp</p></div>
+        <div class="card"><h4>Frontend</h4><p>Vanilla-JS SPA, kein Build-Step</p></div>
+        <div class="card"><h4>Design</h4><p>Nocturne dark + Gold-Accent, Inter, Phosphor</p></div>
+      </div>
+    </section>
+
+    <section id="api">
+      <h2>🔌 API-Referenz</h2>
+      <table>
+        <thead><tr><th>Methode &amp; Pfad</th><th>Auth</th><th>Zweck</th></tr></thead>
+        <tbody>
+          <tr><td><code>GET /api/health</code></td><td>–</td><td>Health-Check</td></tr>
+          <tr><td><code>POST /api/host/events</code></td><td>–</td><td>Event erstellen, liefert hostToken</td></tr>
+          <tr><td><code>POST /api/host/events/:id/auth</code></td><td>Token</td><td>Token gegen Host-Cookie tauschen</td></tr>
+          <tr><td><code>GET /api/host/events/:id/stats</code></td><td>Host</td><td>Event-Statistiken</td></tr>
+          <tr><td><code>GET /api/host/events/:id/qr.svg</code></td><td>–</td><td>QR-Code als SVG</td></tr>
+          <tr><td><code>GET /api/events/:id/info</code></td><td>–</td><td>Öffentliche Event-Infos</td></tr>
+          <tr><td><code>POST /api/events/:id/join</code></td><td>–</td><td>Als Gast beitreten</td></tr>
+          <tr><td><code>GET /api/events/:id/me</code></td><td>Gast</td><td>Aktuelle Aufgabe</td></tr>
+          <tr><td><code>POST /api/events/:id/task/rotate</code></td><td>Gast</td><td>Neue Aufgabe ziehen</td></tr>
+          <tr><td><code>POST /api/events/:id/photos</code></td><td>Gast</td><td>Foto hochladen</td></tr>
+          <tr><td><code>GET /api/events/:id/gallery</code></td><td>Gast/Host</td><td>Galerie-Liste</td></tr>
+          <tr><td><code>GET /api/events/:id/photos/:photoId/image</code></td><td>Gast/Host</td><td>Foto inline ausliefern</td></tr>
+          <tr><td><code>GET /host/:id/print?t=&lt;token&gt;</code></td><td>Token</td><td>Druckbares QR-Poster</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="auth">
+      <h2>🔐 Auth-Modell</h2>
+      <ul>
+        <li><strong>Gastgeber:</strong> Beim Erstellen wird ein zufälliger <code>hostToken</code> erzeugt. Das Dashboard tauscht ihn gegen ein signiertes Host-Cookie (<code>fch_&lt;id&gt;</code>). Der Token wird zusätzlich in <code>localStorage</code> gespeichert.</li>
+        <li><strong>Gast:</strong> Beim Beitreten mit Name + Gast-Passwort wird ein signiertes Gast-Cookie (<code>fcg_&lt;id&gt;</code>) gesetzt.</li>
+        <li><strong>Galerie &amp; Bilder</strong> erfordern ein gültiges Gast- oder Host-Cookie — Fremde werden geblockt.</li>
+        <li><strong>Fotos</strong> werden inline ausgeliefert; Download wird best-effort verhindert (CSS <code>user-select</code>/<code>drag: none</code>, geblocktes Kontextmenü). Kein echter DRM-Schutz.</li>
+      </ul>
+    </section>
+
+    <section id="setup">
+      <h2>🚀 Lokales Setup</h2>
+      <pre><code>git clone https://github.com/konradthiemann/Foto-Challenge.git
+cd Foto-Challenge
+npm install
+cp .env.example .env
+# SESSION_SECRET setzen: openssl rand -hex 32
+npm run dev</code></pre>
+      <p>Die App läuft auf <code>http://localhost:3000</code> (oder <code>PORT</code>).</p>
+      <h3>Environment-Variablen</h3>
+      <dl class="env">
+        <dt>PORT</dt><dd>Port des Servers (Default 3000, Railway setzt ihn automatisch).</dd>
+        <dt>DATA_DIR</dt><dd>Verzeichnis für SQLite-DB und Uploads (Default <code>./data</code>, auf Railway ein Volume wie <code>/data</code>).</dd>
+        <dt>SESSION_SECRET</dt><dd>Pflicht in Produktion. Langer Zufallsstring zum Signieren der Cookies.</dd>
+        <dt>PUBLIC_BASE_URL</dt><dd>Basis-URL für QR-Codes / Einladungs-Links. Leer = aus Request abgeleitet.</dd>
+      </dl>
+    </section>
+
+    <section id="deploy">
+      <h2>☁️ Deployment (Railway)</h2>
+      <ol class="steps">
+        <li>Service anlegen und Repo/Verzeichnis verbinden.</li>
+        <li>Volume mounten und <code>DATA_DIR</code> darauf zeigen lassen (z. B. <code>/data</code>).</li>
+        <li>Env-Variablen setzen: <code>SESSION_SECRET</code>, <code>DATA_DIR</code>, <code>NODE_ENV=production</code>, <code>PUBLIC_BASE_URL</code>.</li>
+        <li>Deployen — <code>railway.json</code> regelt Build (NIXPACKS) und Start (<code>npm start</code>).</li>
+      </ol>
+      <div class="note"><strong>Wichtig:</strong> <code>engines.node</code> ist auf <code>22.x</code> gepinnt. better-sqlite3 und sharp haben für Node 22 Prebuilt-Binaries — bei neueren Versionen schlägt der Build fehl. Node-Version nicht lockern.</div>
+    </section>
+  </main>
+
+  <footer class="wrap">
+    Foto-Challenge · <a href="https://github.com/konradthiemann/Foto-Challenge">GitHub</a> · MIT License
+  </footer>
+</body>
+</html>

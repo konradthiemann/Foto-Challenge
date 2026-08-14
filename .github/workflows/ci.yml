@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - "**"        # run on all branches
+  pull_request:
+    branches:
+      - "**"        # run on PRs from any branch
+  workflow_dispatch:  # allow manual runs from GitHub UI
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    name: Install & smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Start server and check /api/health
+        env:
+          PORT: 3000
+          DATA_DIR: ./data
+          SESSION_SECRET: ci-test-secret
+        run: |
+          node src/server.js &
+          SERVER_PID=$!
+          # Wait until the health endpoint responds (max ~20s)
+          for i in $(seq 1 20); do
+            if curl -fsS http://localhost:3000/api/health | grep -q '"ok":true'; then
+              echo "Health check passed"
+              kill $SERVER_PID
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Health check failed"
+          kill $SERVER_PID || true
+          exit 1
