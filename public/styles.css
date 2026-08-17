@@ -292,13 +292,16 @@ input.nm:focus { border-color: var(--gold); }
 
 /* — Install FAB — */
 .installfab {
-  position: fixed; right: 16px; bottom: max(20px, env(safe-area-inset-bottom)); z-index: 55;
+  position: fixed; right: 16px; bottom: calc(76px + env(safe-area-inset-bottom)); z-index: 55;
   display: inline-flex; align-items: center; gap: 8px; padding: 12px 18px; border: 0;
   border-radius: 999px; background: linear-gradient(180deg, var(--gold-bright), var(--gold));
   color: #161826; font: 600 13px var(--font-heading); cursor: pointer;
   box-shadow: 0 10px 26px rgba(201,164,78,.4);
 }
 .installfab i { font-size: 18px; }
+/* On screens with the bottom nav (task/gallery/host), install is offered via
+   the "?" help sheet instead — hide the floating FAB so it can't overlap. */
+body:has(.nav) .installfab { display: none; }
 
 /* — Help FAB on the task screen — */
 .helpfab {
