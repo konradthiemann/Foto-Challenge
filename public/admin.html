@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#161826">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Admin — Foto-Challenge</title>
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <style>
+    :root{--bg:#161826;--surface:#232532;--surface2:#1c1e2c;--text:#e9e9ed;--muted:#9397ab;
+      --border:#3f424d;--gold:#c9a44e;--gold-bright:#e2c479;--radius:14px;}
+    *{box-sizing:border-box;}
+    body{margin:0;background:var(--bg);color:var(--text);
+      font-family:Inter,system-ui,-apple-system,sans-serif;line-height:1.55;}
+    .wrap{max-width:1040px;margin:0 auto;padding:28px 20px 80px;}
+    header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:24px;}
+    header h1{font-size:22px;font-weight:500;margin:0;}
+    header .kick{font:600 10px Inter;letter-spacing:.22em;color:var(--gold);text-transform:uppercase;}
+    a{color:var(--gold-bright);text-decoration:none;}
+    .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;}
+    .kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;}
+    .kpi .n{font:600 26px Inter;color:var(--gold-bright);}
+    .kpi .l{font-size:12px;color:var(--muted);margin-top:2px;}
+    .charts{display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-top:20px;}
+    @media (max-width:720px){.charts{grid-template-columns:1fr;}}
+    .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;}
+    .panel h2{font-size:14px;font-weight:600;color:var(--gold-bright);margin:0 0 12px;}
+    table{width:100%;border-collapse:collapse;margin-top:20px;font-size:13px;}
+    th,td{text-align:left;padding:9px 10px;border-bottom:1px solid #2a2c39;}
+    th{color:var(--gold-bright);font-weight:600;}
+    td.exp{color:#e59b9b;}
+    .gate{max-width:360px;margin:12vh auto 0;background:var(--surface);border:1px solid var(--border);
+      border-radius:var(--radius);padding:28px 24px;text-align:center;}
+    .gate input{width:100%;height:48px;border:1px solid var(--border);border-radius:10px;background:var(--surface2);
+      color:var(--text);padding:0 14px;font-size:15px;margin:14px 0;outline:none;}
+    .gate input:focus{border-color:var(--gold);}
+    .gate button{width:100%;height:48px;border:0;border-radius:10px;cursor:pointer;
+      background:linear-gradient(180deg,var(--gold-bright),var(--gold));color:#161826;font:600 14px Inter;}
+    .err{color:#e59b9b;font-size:13px;min-height:16px;margin-top:8px;}
+    .hidden{display:none;}
+  </style>
+</head>
+<body>
+  <div id="gate" class="gate hidden">
+    <div class="kick" style="color:var(--gold)">Foto-Challenge</div>
+    <h1 style="font-weight:500;margin:6px 0 0">Admin-Zugang</h1>
+    <input id="token" type="password" placeholder="Admin-Token" autocomplete="off">
+    <button id="login">Anmelden</button>
+    <div class="err" id="gateErr"></div>
+  </div>
+
+  <div id="dash" class="wrap hidden">
+    <header>
+      <div><span class="kick">Foto-Challenge</span><h1>Admin-Dashboard</h1></div>
+      <a href="/">← zur App</a>
+    </header>
+    <div class="kpis" id="kpis"></div>
+    <div class="charts">
+      <div class="panel"><h2>Aktivität (letzte 30 Tage)</h2><canvas id="trend" height="140"></canvas></div>
+      <div class="panel"><h2>Events nach Preisstufe</h2><canvas id="tiers" height="140"></canvas></div>
+    </div>
+    <div class="panel" style="margin-top:20px;overflow-x:auto">
+      <h2>Veranstaltungen</h2>
+      <table><thead><tr>
+        <th>Feier</th><th>Gäste</th><th>Fotos</th><th>Stufe</th><th>Preis</th><th>Erstellt</th><th>Löschung</th>
+      </tr></thead><tbody id="rows"></tbody></table>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const eur = (c) => (c/100).toFixed(2).replace('.', ',') + ' €';
+    const dfmt = (ts) => ts ? new Date(ts).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'2-digit'}) : '–';
+
+    async function loadStats() {
+      const res = await fetch('/api/admin/stats', { credentials:'same-origin' });
+      if (res.status === 401 || res.status === 503) { $('gate').classList.remove('hidden'); return; }
+      if (!res.ok) { $('gate').classList.remove('hidden'); $('gateErr').textContent='Fehler beim Laden.'; return; }
+      render(await res.json());
+    }
+
+    $('login').onclick = async () => {
+      const token = $('token').value;
+      const r = await fetch('/api/admin/auth', {
+        method:'POST', credentials:'same-origin',
+        headers:{'Content-Type':'application/json'}, body: JSON.stringify({ token }),
+      });
+      if (r.ok) { $('gateErr').textContent=''; $('gate').classList.add('hidden'); loadStats(); }
+      else if (r.status === 503) $('gateErr').textContent = 'Admin ist nicht konfiguriert (ADMIN_TOKEN fehlt).';
+      else $('gateErr').textContent = 'Falscher Token.';
+    };
+    $('token').addEventListener('keydown', (e) => { if (e.key==='Enter') $('login').click(); });
+
+    function render(s) {
+      $('dash').classList.remove('hidden');
+      const t = s.totals;
+      $('kpis').innerHTML = [
+        ['Veranstaltungen', t.events],
+        ['davon aktiv', t.activeEvents],
+        ['Gäste gesamt', t.guests],
+        ['Fotos gesamt', t.photos],
+        ['Umsatz (Schätzung)', eur(t.revenueCents)],
+      ].map(([l,n]) => `<div class="kpi"><div class="n">${n}</div><div class="l">${l}</div></div>`).join('');
+
+      $('rows').innerHTML = s.events.map((e) => `<tr>
+        <td>${escapeHtml(e.name)}</td>
+        <td>${e.guestCount}/${e.guestLimit}</td>
+        <td>${e.photoCount}</td>
+        <td>bis ${e.guestLimit}</td>
+        <td>${eur(e.priceCents)}</td>
+        <td>${dfmt(e.createdAt)}</td>
+        <td class="${e.active?'':'exp'}">${dfmt(e.expiresAt)}</td>
+      </tr>`).join('') || '<tr><td colspan="7" style="color:var(--muted)">Noch keine Veranstaltungen.</td></tr>';
+
+      const grid = 'rgba(255,255,255,.06)', tick = '#9397ab';
+      new Chart($('trend'), {
+        type:'line',
+        data:{ labels: s.days.map(d=>d.date.slice(5)),
+          datasets:[
+            { label:'Events', data:s.days.map(d=>d.events), borderColor:'#e2c479', backgroundColor:'rgba(226,196,121,.15)', tension:.3, fill:true },
+            { label:'Gäste', data:s.days.map(d=>d.guests), borderColor:'#7aa2ff', tension:.3 },
+            { label:'Fotos', data:s.days.map(d=>d.photos), borderColor:'#8fd694', tension:.3 },
+          ]},
+        options:{ plugins:{legend:{labels:{color:tick}}}, scales:{
+          x:{ticks:{color:tick,maxTicksLimit:8},grid:{color:grid}},
+          y:{ticks:{color:tick,precision:0},grid:{color:grid},beginAtZero:true}}}
+      });
+
+      const tierLabels = Object.keys(s.tierCounts).sort((a,b)=>a-b);
+      new Chart($('tiers'), {
+        type:'doughnut',
+        data:{ labels: tierLabels.map(l=>`bis ${l}`),
+          datasets:[{ data: tierLabels.map(l=>s.tierCounts[l]),
+            backgroundColor:['#c9a44e','#e2c479','#7aa2ff','#8fd694','#d68f8f','#b18fd6'] }]},
+        options:{ plugins:{legend:{position:'bottom',labels:{color:tick,boxWidth:12}}}}
+      });
+    }
+
+    function escapeHtml(s){return String(s).replace(/[&<>"]/g,(c)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+    loadStats();
+  </script>
+</body>
+</html>

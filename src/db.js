@@ -19,7 +19,8 @@ db.exec(`
     guest_password_hash TEXT,
     host_token          TEXT NOT NULL,
     join_code           TEXT,
-    created_at          INTEGER NOT NULL
+    created_at          INTEGER NOT NULL,
+    expires_at          INTEGER
   );
 
   CREATE TABLE IF NOT EXISTS guests (
@@ -27,6 +28,7 @@ db.exec(`
     event_id        TEXT NOT NULL REFERENCES events(id) ON DELETE CASCADE,
     name            TEXT NOT NULL,
     current_task_id INTEGER,
+    consented_at    INTEGER,
     created_at      INTEGER NOT NULL
   );
 
@@ -53,6 +55,15 @@ db.exec(`
 const eventCols = db.prepare('PRAGMA table_info(events)').all();
 if (!eventCols.some((c) => c.name === 'join_code')) {
   db.exec('ALTER TABLE events ADD COLUMN join_code TEXT');
+}
+// Migration: retention timestamp for automatic deletion (added later).
+if (!eventCols.some((c) => c.name === 'expires_at')) {
+  db.exec('ALTER TABLE events ADD COLUMN expires_at INTEGER');
+}
+// Migration: consent timestamp on guests (DSGVO accountability).
+const guestCols = db.prepare('PRAGMA table_info(guests)').all();
+if (!guestCols.some((c) => c.name === 'consented_at')) {
+  db.exec('ALTER TABLE guests ADD COLUMN consented_at INTEGER');
 }
 // NULLs are allowed to repeat in a SQLite unique index, so this is safe before backfill.
 db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_events_join_code ON events(join_code)');

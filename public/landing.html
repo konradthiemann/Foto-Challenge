@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#161826">
+  <title>Foto-Challenge — die Party-Foto-App für unvergessliche Abende</title>
+  <meta name="description" content="Gäste scannen einen QR-Code, bekommen kleine Foto-Aufgaben und teilen sie in einer gemeinsamen, passwortgeschützten Galerie. Kein Download, keine Registrierung. Kostenlos bis 5 Gäste.">
+  <meta name="robots" content="index,follow">
+  <meta property="og:title" content="Foto-Challenge — Party-Foto-App">
+  <meta property="og:description" content="QR scannen, Aufgabe bekommen, Foto machen, gemeinsame Galerie. Kostenlos bis 5 Gäste.">
+  <meta property="og:type" content="website">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+  <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
+  <style>
+    :root{--bg:#161826;--surface:#1e2133;--surface2:#252942;--border:#2f3450;--text:#e9e9ed;
+      --muted:#9aa0bd;--gold:#c9a44e;--gold-bright:#e2c479;--radius:16px;}
+    *{box-sizing:border-box;}
+    html{scroll-behavior:smooth;}
+    body{margin:0;font-family:Inter,system-ui,-apple-system,sans-serif;background:var(--bg);
+      color:var(--text);line-height:1.6;}
+    a{color:var(--gold-bright);text-decoration:none;}
+    .wrap{max-width:1080px;margin:0 auto;padding:0 22px;}
+    .kick{font:600 11px Inter;letter-spacing:.22em;color:var(--gold);text-transform:uppercase;}
+    h1,h2,h3{font-weight:500;margin:0;}
+    .btn{display:inline-flex;align-items:center;gap:9px;padding:14px 26px;border-radius:999px;
+      font:600 15px Inter;cursor:pointer;border:1px solid var(--border);}
+    .btn-primary{background:linear-gradient(180deg,var(--gold-bright),var(--gold));color:#161826;border:0;}
+    .btn-primary:hover{filter:brightness(1.05);}
+    .btn-ghost{background:var(--surface);color:var(--text);}
+    .btn-ghost:hover{border-color:var(--gold);}
+
+    /* nav */
+    nav.top{position:sticky;top:0;z-index:20;background:rgba(22,24,38,.85);backdrop-filter:blur(10px);
+      border-bottom:1px solid var(--border);}
+    nav.top .wrap{display:flex;align-items:center;justify-content:space-between;height:62px;}
+    .brand{display:flex;align-items:center;gap:10px;font-weight:600;}
+    .brand .mark{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;color:#161826;
+      background:linear-gradient(160deg,var(--gold-bright),var(--gold));}
+    nav.top .links{display:flex;gap:22px;align-items:center;font-size:14px;}
+    nav.top .links a{color:var(--muted);}
+    nav.top .links a:hover{color:var(--gold-bright);}
+    @media(max-width:640px){nav.top .links a:not(.btn){display:none;}}
+
+    /* hero */
+    header.hero{background:radial-gradient(1100px 460px at 70% -10%,rgba(201,164,78,.18),transparent);}
+    header.hero .wrap{display:grid;grid-template-columns:1.1fr .9fr;gap:40px;align-items:center;
+      padding:70px 22px 60px;}
+    @media(max-width:860px){header.hero .wrap{grid-template-columns:1fr;text-align:center;}}
+    header.hero h1{font-size:clamp(2.1rem,5vw,3.2rem);line-height:1.1;margin:14px 0 16px;}
+    header.hero h1 b{background:linear-gradient(90deg,var(--gold),var(--gold-bright));
+      -webkit-background-clip:text;background-clip:text;color:transparent;font-weight:600;}
+    header.hero p.lead{color:var(--muted);font-size:1.14rem;max-width:520px;margin:0 0 26px;}
+    @media(max-width:860px){header.hero p.lead{margin:0 auto 26px;}}
+    .cta{display:flex;gap:12px;flex-wrap:wrap;}
+    @media(max-width:860px){.cta{justify-content:center;}}
+    .trust{margin-top:18px;color:var(--muted);font-size:13px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+    @media(max-width:860px){.trust{justify-content:center;}}
+    .trust i{color:var(--gold);}
+
+    /* phone mockups (recreated app screens) */
+    .shots{display:flex;justify-content:center;gap:18px;position:relative;}
+    .phone{width:230px;flex:0 0 auto;border-radius:34px;background:#0e0f18;padding:10px;
+      border:1px solid #2b2e44;box-shadow:0 30px 70px rgba(0,0,0,.5);}
+    .phone.tilt-l{transform:rotate(-5deg) translateY(10px);}
+    .phone.tilt-r{transform:rotate(5deg) translateY(10px);}
+    @media(max-width:520px){.phone.tilt-l,.phone.tilt-r{display:none;}}
+    .scr{border-radius:26px;background:var(--bg);height:470px;padding:22px 18px;overflow:hidden;
+      display:flex;flex-direction:column;}
+    .scr .m-kick{font:600 9px Inter;letter-spacing:.2em;color:var(--gold);text-transform:uppercase;}
+    .scr .m-rule{width:30px;height:1px;background:var(--gold);margin:14px 0;}
+    .m-logo{width:52px;height:52px;border-radius:15px;color:#161826;display:grid;place-items:center;
+      background:linear-gradient(160deg,var(--gold-bright),var(--gold));font-size:26px;margin:8px auto 0;}
+    .center{text-align:center;}
+    .m-title{font-size:22px;margin-top:14px;}
+    .m-lead{color:var(--muted);font-size:12.5px;margin-top:8px;}
+    .m-btn{height:42px;border-radius:11px;display:flex;align-items:center;justify-content:center;gap:7px;
+      background:linear-gradient(180deg,var(--gold-bright),var(--gold));color:#161826;font:600 13px Inter;margin-top:12px;}
+    .m-btn.sec{background:transparent;border:1px solid var(--border);color:var(--muted);}
+    .m-taskcat{font:400 9px Inter;letter-spacing:.1em;text-transform:uppercase;color:var(--gold);}
+    .m-tasktext{font-size:20px;line-height:1.25;margin-top:8px;}
+    .m-meta{display:flex;align-items:center;gap:7px;margin-top:14px;color:var(--muted);font-size:11px;}
+    .m-meta i{color:var(--gold);}
+    .m-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;}
+    .m-tile{aspect-ratio:3/4;border-radius:10px;position:relative;overflow:hidden;
+      display:flex;align-items:flex-end;padding:8px;}
+    .m-tile span{position:relative;z-index:1;font:500 8px Inter;color:var(--gold-bright);}
+    .m-tile::after{content:"";position:absolute;inset:0;background:linear-gradient(0deg,rgba(0,0,0,.5),transparent 60%);}
+    .grow{flex:1;}
+    .m-qr{width:120px;height:120px;border-radius:14px;background:#f3f5fe;margin:16px auto 0;padding:10px;}
+    .m-qr svg{width:100%;height:100%;}
+
+    /* sections */
+    section{padding:66px 0;border-top:1px solid var(--border);}
+    section h2{font-size:clamp(1.6rem,4vw,2.1rem);}
+    .lead2{color:var(--muted);max-width:640px;margin-top:12px;}
+    .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin-top:34px;}
+    .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:22px;}
+    .card .ic{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;font-size:22px;
+      background:rgba(201,164,78,.12);color:var(--gold-bright);margin-bottom:14px;}
+    .card h3{font-size:1.08rem;margin-bottom:6px;}
+    .card p{color:var(--muted);font-size:.95rem;margin:0;}
+
+    .steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:18px;margin-top:34px;}
+    .step{position:relative;padding-top:14px;}
+    .step .n{width:38px;height:38px;border-radius:999px;display:grid;place-items:center;font-weight:700;
+      color:#161826;background:linear-gradient(90deg,var(--gold),var(--gold-bright));margin-bottom:12px;}
+    .step h3{font-size:1.05rem;margin-bottom:6px;}
+    .step p{color:var(--muted);font-size:.94rem;margin:0;}
+
+    /* pricing */
+    .prices{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-top:34px;}
+    .price{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:22px 18px;text-align:center;}
+    .price.featured{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold) inset;}
+    .price .tier{color:var(--muted);font-size:13px;}
+    .price .amt{font:600 26px Inter;color:var(--gold-bright);margin:8px 0 2px;}
+    .price .per{color:var(--muted);font-size:11px;}
+    .price .tag{display:inline-block;margin-top:10px;font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+      color:var(--gold);}
+
+    .faq{margin-top:30px;}
+    details{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 18px;margin-bottom:10px;}
+    details summary{cursor:pointer;font-weight:600;list-style:none;}
+    details summary::-webkit-details-marker{display:none;}
+    details p{color:var(--muted);margin:10px 0 0;}
+
+    .final{text-align:center;background:radial-gradient(700px 300px at 50% 0%,rgba(201,164,78,.16),transparent);}
+    footer{border-top:1px solid var(--border);padding:30px 0;color:var(--muted);font-size:13px;}
+    footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;}
+    footer a{color:var(--muted);margin-left:16px;}
+  </style>
+</head>
+<body>
+  <nav class="top">
+    <div class="wrap">
+      <div class="brand"><span class="mark"><i class="ph-fill ph-camera"></i></span>Foto-Challenge</div>
+      <div class="links">
+        <a href="#features">Features</a>
+        <a href="#how">So geht's</a>
+        <a href="#pricing">Preise</a>
+        <a class="btn btn-primary" href="/host">Feier starten</a>
+      </div>
+    </div>
+  </nav>
+
+  <header class="hero">
+    <div class="wrap">
+      <div>
+        <span class="kick">Die Party-Foto-App</span>
+        <h1>Macht aus jeder Feier ein <b>gemeinsames Fotoalbum</b>.</h1>
+        <p class="lead">Gäste scannen einen QR-Code, bekommen kleine Foto-Aufgaben und teilen ihre Bilder in einer gemeinsamen Galerie. Kein App-Download, keine Registrierung — einfach scannen und mitmachen.</p>
+        <div class="cta">
+          <a class="btn btn-primary" href="/host"><i class="ph-fill ph-confetti"></i>Kostenlos starten</a>
+          <a class="btn btn-ghost" href="#how">So funktioniert's</a>
+        </div>
+        <div class="trust">
+          <i class="ph-fill ph-check-circle"></i> Kostenlos bis 5 Gäste
+          <span>·</span><i class="ph-fill ph-lock-key"></i> Passwortgeschützt
+          <span>·</span><i class="ph-fill ph-shield-check"></i> Daten in der EU
+        </div>
+      </div>
+
+      <div class="shots">
+        <!-- Start screen -->
+        <div class="phone tilt-l">
+          <div class="scr center">
+            <div class="grow"></div>
+            <div class="m-logo"><i class="ph-fill ph-camera"></i></div>
+            <div class="m-title">Foto-Challenge</div>
+            <div class="m-lead">Kleine Aufgaben, echte Momente.</div>
+            <div class="grow"></div>
+            <div class="m-btn"><i class="ph-fill ph-qr-code"></i>QR-Code scannen</div>
+            <div class="m-btn sec">Als Gastgeber starten</div>
+          </div>
+        </div>
+        <!-- Task screen -->
+        <div class="phone">
+          <div class="scr">
+            <div class="m-kick">Foto·Challenge</div>
+            <div class="m-rule"></div>
+            <div class="m-taskcat">Deine Aufgabe</div>
+            <div class="m-tasktext">Mach ein Foto mit jemandem, den du heute zum ersten Mal triffst.</div>
+            <div class="m-meta"><i class="ph ph-users-three"></i>Ein Foto mit jemandem/etwas</div>
+            <div class="grow"></div>
+            <div class="m-btn"><i class="ph-fill ph-camera"></i>Foto aufnehmen</div>
+            <div class="m-btn sec"><i class="ph ph-shuffle"></i>Andere Aufgabe</div>
+          </div>
+        </div>
+        <!-- Gallery screen -->
+        <div class="phone tilt-r">
+          <div class="scr">
+            <div class="m-title" style="font-size:18px">Galerie</div>
+            <div class="m-rule"></div>
+            <div class="m-grid">
+              <div class="m-tile" style="background:linear-gradient(135deg,#3a3050,#191b28)"><span>Freunde</span></div>
+              <div class="m-tile" style="background:linear-gradient(135deg,#2f4150,#191b28)"><span>Tanzfläche</span></div>
+              <div class="m-tile" style="background:linear-gradient(135deg,#503a30,#191b28)"><span>Selfie</span></div>
+              <div class="m-tile" style="background:linear-gradient(135deg,#304f3a,#191b28)"><span>Deko</span></div>
+              <div class="m-tile" style="background:linear-gradient(135deg,#453050,#191b28)"><span>Team</span></div>
+              <div class="m-tile" style="background:linear-gradient(135deg,#3a3f50,#191b28)"><span>Moment</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <section id="features">
+    <div class="wrap">
+      <span class="kick">Warum Foto-Challenge</span>
+      <h2>Alle machen mit — ganz von allein.</h2>
+      <p class="lead2">Statt dass die Fotos auf 30 Handys verstreut liegen, entsteht ein gemeinsames Album. Die kleinen Aufgaben brechen das Eis und bringen die Gäste zusammen.</p>
+      <div class="cards">
+        <div class="card"><div class="ic"><i class="ph-fill ph-qr-code"></i></div><h3>QR-Code statt App</h3><p>Gäste scannen und legen los. Kein Store, kein Download, keine Konten — funktioniert auf jedem Handy im Browser.</p></div>
+        <div class="card"><div class="ic"><i class="ph-fill ph-target"></i></div><h3>65 Foto-Aufgaben</h3><p>Kuratiert, gemeinschaftsstärkend und nie peinlich. Wer mag, zieht einfach eine andere Aufgabe.</p></div>
+        <div class="card"><div class="ic"><i class="ph-fill ph-images"></i></div><h3>Gemeinsame Galerie</h3><p>Alle Fotos an einem Ort — live während der Feier. Teilnehmer können die ganze Galerie herunterladen.</p></div>
+        <div class="card"><div class="ic"><i class="ph-fill ph-lock-key"></i></div><h3>Passwortgeschützt</h3><p>Nur eingeladene Gäste mit dem Passwort sehen die Bilder. Fremde bleiben draußen.</p></div>
+        <div class="card"><div class="ic"><i class="ph-fill ph-printer"></i></div><h3>Druckbares Plakat</h3><p>Fertiges QR-Poster zum Aufhängen — einfach ausdrucken und in den Saal hängen.</p></div>
+        <div class="card"><div class="ic"><i class="ph-fill ph-shield-check"></i></div><h3>Datenschutz &amp; Löschung</h3><p>Server in der EU, Einwilligung beim Beitritt, automatische Löschung der Galerie nach 30 Tagen.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="how">
+    <div class="wrap">
+      <span class="kick">In 4 Schritten</span>
+      <h2>So funktioniert's.</h2>
+      <div class="steps">
+        <div class="step"><div class="n">1</div><h3>Feier anlegen</h3><p>Name, Gästezahl und ein Galerie-Passwort wählen — in unter einer Minute.</p></div>
+        <div class="step"><div class="n">2</div><h3>QR-Poster aufhängen</h3><p>Fertiges Plakat drucken und im Saal verteilen. Gäste scannen einfach.</p></div>
+        <div class="step"><div class="n">3</div><h3>Aufgaben &amp; Fotos</h3><p>Gäste bekommen Aufgaben, machen Fotos und laden sie hoch.</p></div>
+        <div class="step"><div class="n">4</div><h3>Galerie sichern</h3><p>Am Ende alle Fotos als Album herunterladen — für immer euer.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="pricing">
+    <div class="wrap">
+      <span class="kick">Faire Preise</span>
+      <h2>Einmal zahlen, für den ganzen Abend.</h2>
+      <p class="lead2">Kein Abo. Der Preis richtet sich nur nach der Gästezahl. Kleine Runden feiern kostenlos.</p>
+      <div class="prices">
+        <div class="price featured"><div class="tier">bis 5 Gäste</div><div class="amt">Kostenlos</div><div class="per">für immer</div><div class="tag">Zum Ausprobieren</div></div>
+        <div class="price"><div class="tier">bis 15 Gäste</div><div class="amt">9,90 €</div><div class="per">einmalig</div></div>
+        <div class="price"><div class="tier">bis 30 Gäste</div><div class="amt">19,90 €</div><div class="per">einmalig</div></div>
+        <div class="price"><div class="tier">bis 60 Gäste</div><div class="amt">34,90 €</div><div class="per">einmalig</div></div>
+        <div class="price"><div class="tier">bis 120 Gäste</div><div class="amt">49,90 €</div><div class="per">einmalig</div></div>
+        <div class="price"><div class="tier">bis 200 Gäste</div><div class="amt">69,90 €</div><div class="per">einmalig</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <span class="kick">Häufige Fragen</span>
+      <h2>Gut zu wissen.</h2>
+      <div class="faq">
+        <details><summary>Müssen meine Gäste etwas installieren?</summary><p>Nein. Die Foto-Challenge läuft im Browser. QR-Code scannen, Namen eingeben, mitmachen. Wer mag, kann die Web-App optional mit einem Tipp zum Home-Bildschirm hinzufügen.</p></details>
+        <details><summary>Wer kann die Fotos sehen?</summary><p>Nur die Gäste der jeweiligen Feier und der Gastgeber — geschützt durch das Galerie-Passwort. Es gibt keine öffentliche Galerie.</p></details>
+        <details><summary>Was passiert mit den Fotos nach der Feier?</summary><p>Die Galerie kann von allen Teilnehmern heruntergeladen werden. 30 Tage nach dem Erstellen wird die Veranstaltung samt aller Fotos automatisch gelöscht.</p></details>
+        <details><summary>Sind meine Daten sicher?</summary><p>Die App wird in der EU (Amsterdam) gehostet. Beim Beitritt willigen Gäste ausdrücklich in die Speicherung ein. Details in der <a href="/datenschutz">Datenschutzerklärung</a>.</p></details>
+      </div>
+    </div>
+  </section>
+
+  <section class="final">
+    <div class="wrap">
+      <h2>Bereit für unvergessliche Fotos?</h2>
+      <p class="lead2" style="margin:12px auto 26px">Leg in einer Minute los — kostenlos bis 5 Gäste.</p>
+      <a class="btn btn-primary" href="/host"><i class="ph-fill ph-confetti"></i>Jetzt Feier starten</a>
+    </div>
+  </section>
+
+  <footer>
+    <div class="wrap">
+      <div>© 2026 Foto-Challenge</div>
+      <div>
+        <a href="/impressum">Impressum</a>
+        <a href="/datenschutz">Datenschutz</a>
+        <a href="/agb">AGB</a>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

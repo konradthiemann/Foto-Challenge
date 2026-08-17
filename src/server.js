@@ -7,9 +7,11 @@ import cookieParser from 'cookie-parser';
 import multer from 'multer';
 import QRCode from 'qrcode';
 import sharp from 'sharp';
+import { ZipArchive } from 'archiver';
 
 import db, { UPLOAD_DIR } from './db.js';
 import { TASKS, taskById } from './tasks.js';
+import { priceCents, tierForGuests } from './pricing.js';
 import {
   hashPassword, verifyPassword, signToken, verifyToken, randomId,
 } from './auth.js';
@@ -17,6 +19,15 @@ import {
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 const PORT = process.env.PORT || 3000;
+
+// Data retention: an event and its whole gallery are deleted this many days
+// after creation (DSGVO storage limitation + keeps the volume small).
+const RETENTION_DAYS = Math.max(1, parseInt(process.env.RETENTION_DAYS, 10) || 30);
+const RETENTION_MS = RETENTION_DAYS * 24 * 60 * 60 * 1000;
+
+// Token that unlocks the global admin dashboard (aggregate stats). Optional —
+// if unset, the admin API stays locked.
+const ADMIN_TOKEN = process.env.ADMIN_TOKEN || '';
 
 const app = express();
 app.set('trust proxy', true);
@@ -97,6 +108,38 @@ function generateJoinCode() {
     setCode.run(generateJoinCode(), row.id);
   }
 }
+
+// Backfill retention deadlines for events created before retention existed.
+{
+  const setExpiry = db.prepare('UPDATE events SET expires_at = ? WHERE id = ?');
+  for (const row of db.prepare('SELECT id, created_at FROM events WHERE expires_at IS NULL').all()) {
+    setExpiry.run(row.created_at + RETENTION_MS, row.id);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Retention cleanup: delete expired events, their photos (cascade) and files.
+// ─────────────────────────────────────────────────────────────────────────
+
+function cleanupExpiredEvents() {
+  const now = Date.now();
+  const expired = db.prepare('SELECT id FROM events WHERE expires_at IS NOT NULL AND expires_at <= ?').all(now);
+  if (!expired.length) return 0;
+
+  const filesFor = db.prepare('SELECT filename FROM photos WHERE event_id = ?');
+  const delEvent = db.prepare('DELETE FROM events WHERE id = ?');
+  for (const { id } of expired) {
+    for (const { filename } of filesFor.all(id)) {
+      fs.rm(path.join(UPLOAD_DIR, filename), { force: true }, () => {});
+    }
+    delEvent.run(id); // ON DELETE CASCADE removes guests, photos, task rows
+  }
+  console.log(`[retention] deleted ${expired.length} expired event(s)`);
+  return expired.length;
+}
+
+cleanupExpiredEvents();
+setInterval(cleanupExpiredEvents, 60 * 60 * 1000).unref(); // hourly
 
 function guestCount(eventId) {
   return db.prepare('SELECT COUNT(*) c FROM guests WHERE event_id = ?').get(eventId).c;
@@ -214,7 +257,7 @@ app.get('/api/health', (req, res) => res.json({ ok: true }));
 
 app.post('/api/host/events', (req, res) => {
   const name = String(req.body.name || '').trim().slice(0, 80);
-  const guestLimit = Math.max(1, Math.min(500, parseInt(req.body.guestLimit, 10) || 20));
+  const guestLimit = Math.max(5, Math.min(200, parseInt(req.body.guestLimit, 10) || 5));
   const password = String(req.body.guestPassword || '');
 
   if (!name) return res.status(400).json({ error: 'name_required' });
@@ -223,10 +266,12 @@ app.post('/api/host/events', (req, res) => {
   const id = uniqueEventId(name);
   const hostToken = randomId(16);
   const joinCode = generateJoinCode();
+  const createdAt = Date.now();
+  const expiresAt = createdAt + RETENTION_MS;
   db.prepare(`
-    INSERT INTO events (id, name, guest_limit, guest_password_hash, host_token, join_code, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).run(id, name, guestLimit, hashPassword(password), hostToken, joinCode, Date.now());
+    INSERT INTO events (id, name, guest_limit, guest_password_hash, host_token, join_code, created_at, expires_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(id, name, guestLimit, hashPassword(password), hostToken, joinCode, createdAt, expiresAt);
 
   res.cookie(hostCookieName(id), signToken({ eventId: id, host: true }), COOKIE_BASE);
 
@@ -236,6 +281,9 @@ app.post('/api/host/events', (req, res) => {
     joinCode: joinCode.toUpperCase(),
     joinUrl: `${baseUrl(req)}/${id}`,
     hostUrl: `${baseUrl(req)}/host/${id}?t=${hostToken}`,
+    priceCents: priceCents(guestLimit),
+    expiresAt,
+    retentionDays: RETENTION_DAYS,
   });
 });
 
@@ -266,6 +314,8 @@ app.get('/api/host/events/:id/stats', requireHost, (req, res) => {
     guestCount: guests.length,
     photoCount: photoCount(ev.id),
     createdAt: ev.created_at,
+    expiresAt: ev.expires_at,
+    retentionDays: RETENTION_DAYS,
     guests: guests.map((g) => ({ id: g.id, name: g.name, joinedAt: g.created_at })),
     recent,
   });
@@ -281,6 +331,97 @@ app.get('/api/host/events/:id/qr.svg', async (req, res) => {
     color: { dark: '#161826', light: '#f3f5fe' },
   });
   res.type('image/svg+xml').set('Cache-Control', 'no-store').send(svg);
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// API — admin (global aggregate dashboard, ADMIN_TOKEN protected)
+// ─────────────────────────────────────────────────────────────────────────
+
+const ADMIN_COOKIE = 'fca';
+
+function requireAdmin(req, res, next) {
+  const data = verifyToken(req.cookies[ADMIN_COOKIE]);
+  if (!data || !data.admin) return res.status(401).json({ error: 'not_admin' });
+  next();
+}
+
+app.post('/api/admin/auth', (req, res) => {
+  const token = String(req.body.token || '');
+  if (!ADMIN_TOKEN) return res.status(503).json({ error: 'admin_disabled' });
+  const a = Buffer.from(token);
+  const b = Buffer.from(ADMIN_TOKEN);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+    return res.status(401).json({ error: 'bad_token' });
+  }
+  res.cookie(ADMIN_COOKIE, signToken({ admin: true }), COOKIE_BASE);
+  res.json({ ok: true });
+});
+
+app.get('/api/admin/stats', requireAdmin, (req, res) => {
+  const now = Date.now();
+  const events = db.prepare('SELECT id, name, guest_limit, created_at, expires_at FROM events ORDER BY created_at DESC').all();
+  const totalGuests = db.prepare('SELECT COUNT(*) c FROM guests').get().c;
+  const totalPhotos = db.prepare('SELECT COUNT(*) c FROM photos').get().c;
+
+  let revenueCents = 0;
+  const tierCounts = {};
+  for (const e of events) {
+    revenueCents += priceCents(e.guest_limit);
+    const label = tierForGuests(e.guest_limit).upTo;
+    tierCounts[label] = (tierCounts[label] || 0) + 1;
+  }
+
+  // Per-event counts.
+  const gc = db.prepare('SELECT COUNT(*) c FROM guests WHERE event_id = ?');
+  const pc = db.prepare('SELECT COUNT(*) c FROM photos WHERE event_id = ?');
+  const eventRows = events.map((e) => ({
+    id: e.id,
+    name: e.name,
+    guestLimit: e.guest_limit,
+    guestCount: gc.get(e.id).c,
+    photoCount: pc.get(e.id).c,
+    priceCents: priceCents(e.guest_limit),
+    createdAt: e.created_at,
+    expiresAt: e.expires_at,
+    active: !e.expires_at || e.expires_at > now,
+  }));
+
+  // 30-day daily series.
+  const DAY = 86400000;
+  const days = [];
+  const startDay = Math.floor(now / DAY) - 29;
+  const evAll = db.prepare('SELECT created_at FROM events').all();
+  const guAll = db.prepare('SELECT created_at FROM guests').all();
+  const phAll = db.prepare('SELECT created_at FROM photos').all();
+  const tally = (rows) => {
+    const m = {};
+    for (const r of rows) { const d = Math.floor(r.created_at / DAY); m[d] = (m[d] || 0) + 1; }
+    return m;
+  };
+  const evT = tally(evAll); const guT = tally(guAll); const phT = tally(phAll);
+  for (let i = 0; i < 30; i++) {
+    const d = startDay + i;
+    days.push({
+      date: new Date(d * DAY).toISOString().slice(0, 10),
+      events: evT[d] || 0,
+      guests: guT[d] || 0,
+      photos: phT[d] || 0,
+    });
+  }
+
+  res.json({
+    totals: {
+      events: events.length,
+      activeEvents: eventRows.filter((e) => e.active).length,
+      guests: totalGuests,
+      photos: totalPhotos,
+      revenueCents,
+    },
+    tierCounts,
+    days,
+    events: eventRows.slice(0, 100),
+    retentionDays: RETENTION_DAYS,
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -307,7 +448,9 @@ app.post('/api/events/:id/join', (req, res) => {
 
   const name = String(req.body.name || '').trim().slice(0, 40);
   const password = String(req.body.password || '');
+  const consent = req.body.consent === true || req.body.consent === 'true';
   if (!name) return res.status(400).json({ error: 'name_required' });
+  if (!consent) return res.status(400).json({ error: 'consent_required' });
 
   if (ev.guest_password_hash && !verifyPassword(password, ev.guest_password_hash)) {
     return res.status(401).json({ error: 'bad_password' });
@@ -316,9 +459,10 @@ app.post('/api/events/:id/join', (req, res) => {
     return res.status(403).json({ error: 'full' });
   }
 
+  const now = Date.now();
   const guestId = randomId(10);
-  db.prepare('INSERT INTO guests (id, event_id, name, created_at) VALUES (?, ?, ?, ?)')
-    .run(guestId, ev.id, name, Date.now());
+  db.prepare('INSERT INTO guests (id, event_id, name, consented_at, created_at) VALUES (?, ?, ?, ?, ?)')
+    .run(guestId, ev.id, name, now, now);
   const taskId = assignNextTask(guestId);
 
   res.cookie(guestCookieName(ev.id), signToken({ eventId: ev.id, guestId }), COOKIE_BASE);
@@ -382,7 +526,8 @@ app.get('/api/events/:id/gallery', requireGuestOrHost, (req, res) => {
   });
 });
 
-// Serve an image only to a joined guest or the host. Inline, no-download hints.
+// Serve an image only to a joined guest or the host. Inline by default; with
+// ?dl=1 as an attachment so participants can save it.
 app.get('/api/events/:id/photos/:photoId/image', requireGuestOrHost, (req, res) => {
   const photo = db.prepare('SELECT * FROM photos WHERE id = ? AND event_id = ?')
     .get(req.params.photoId, req.params.id);
@@ -390,9 +535,43 @@ app.get('/api/events/:id/photos/:photoId/image', requireGuestOrHost, (req, res) 
   const file = path.join(UPLOAD_DIR, photo.filename);
   if (!fs.existsSync(file)) return res.status(404).end();
   res.set('Cache-Control', 'private, max-age=3600');
-  res.set('Content-Disposition', 'inline');
   res.set('X-Content-Type-Options', 'nosniff');
+  if (req.query.dl) {
+    res.set('Content-Disposition', `attachment; filename="foto-${photo.id}${path.extname(photo.filename)}"`);
+  } else {
+    res.set('Content-Disposition', 'inline');
+  }
   res.sendFile(file);
+});
+
+// Download the whole gallery as a ZIP (guests and host allowed).
+app.get('/api/events/:id/download.zip', requireGuestOrHost, (req, res) => {
+  const ev = getEvent(req.params.id);
+  if (!ev) return res.status(404).end();
+  const photos = db.prepare(`
+    SELECT p.id, p.task_id, p.filename, g.name AS guest_name
+    FROM photos p JOIN guests g ON g.id = p.guest_id
+    WHERE p.event_id = ? ORDER BY p.created_at ASC
+  `).all(ev.id);
+  if (!photos.length) return res.status(404).json({ error: 'empty' });
+
+  const safe = slugify(ev.name) || 'galerie';
+  res.set('Content-Type', 'application/zip');
+  res.set('Content-Disposition', `attachment; filename="${safe}-galerie.zip"`);
+
+  const zip = new ZipArchive({ zlib: { level: 6 } });
+  zip.on('error', (err) => { console.error(err); res.destroy(); });
+  zip.pipe(res);
+  let n = 0;
+  for (const p of photos) {
+    const file = path.join(UPLOAD_DIR, p.filename);
+    if (!fs.existsSync(file)) continue;
+    n += 1;
+    const cat = (taskById(p.task_id)?.cat || 'foto').replace(/[^\p{L}\p{N}]+/gu, '-').toLowerCase();
+    const guest = String(p.guest_name || '').replace(/[^\p{L}\p{N}]+/gu, '-').toLowerCase();
+    zip.file(file, { name: `${String(n).padStart(3, '0')}_${cat}_${guest}${path.extname(p.filename)}` });
+  }
+  zip.finalize();
 });
 
 // ─────────────────────────────────────────────────────────────────────────

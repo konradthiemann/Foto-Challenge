@@ -269,3 +269,62 @@ input.nm:focus { border-color: var(--gold); }
   border: 1px solid var(--color-neutral-800); max-width: 90%;
 }
 .hidden { display: none !important; }
+
+/* — Consent checkbox rows (join + create) — */
+.consent { display: flex; gap: 10px; align-items: flex-start; cursor: pointer;
+  font: 400 12px/1.5 var(--font-body); color: var(--color-neutral-400); }
+.consent input { flex: 0 0 auto; width: 18px; height: 18px; margin-top: 1px; accent-color: var(--gold); }
+.consent a { color: var(--gold-bright); }
+
+/* — Footer links (start screen) — */
+.footlinks { display: flex; flex-wrap: wrap; gap: 4px 16px; justify-content: center;
+  font: 400 12px var(--font-body); color: var(--color-neutral-600); }
+.footlinks a { color: var(--color-neutral-500); }
+
+/* — Gallery download-all button — */
+.galbar { display: flex; justify-content: flex-end; margin-top: 12px; }
+.dlall { display: inline-flex; align-items: center; gap: 7px; padding: 8px 14px;
+  border: 1px solid var(--color-neutral-800); border-radius: 999px; background: var(--color-surface);
+  color: var(--color-neutral-300); font: 500 12px var(--font-body); text-decoration: none; }
+.dlall:hover { border-color: var(--gold); }
+.dlall i { color: var(--gold); font-size: 15px; }
+
+/* — Install FAB — */
+.installfab {
+  position: fixed; right: 16px; bottom: max(20px, env(safe-area-inset-bottom)); z-index: 55;
+  display: inline-flex; align-items: center; gap: 8px; padding: 12px 18px; border: 0;
+  border-radius: 999px; background: linear-gradient(180deg, var(--gold-bright), var(--gold));
+  color: #161826; font: 600 13px var(--font-heading); cursor: pointer;
+  box-shadow: 0 10px 26px rgba(201,164,78,.4);
+}
+.installfab i { font-size: 18px; }
+
+/* — iOS install guide overlay — */
+.iosguide { position: fixed; inset: 0; z-index: 70; background: rgba(0,0,0,.6);
+  display: flex; align-items: flex-end; justify-content: center; padding: 16px;
+  animation: fade .2s ease; }
+.ioscard { position: relative; width: 100%; max-width: 400px; background: var(--color-surface);
+  border: 1px solid var(--color-neutral-800); border-radius: 18px; padding: 26px 22px 22px;
+  margin-bottom: max(16px, env(safe-area-inset-bottom)); }
+.iosclose { position: absolute; top: 12px; right: 12px; width: 34px; height: 34px; border-radius: 50%;
+  border: 0; background: var(--color-neutral-900); color: var(--color-neutral-400); font-size: 16px; cursor: pointer; }
+.iossteps { list-style: none; counter-reset: s; padding: 0; margin: 0; }
+.iossteps li { counter-increment: s; position: relative; padding: 10px 0 10px 40px;
+  font: 400 14px var(--font-body); color: var(--color-neutral-300); border-top: 1px solid var(--color-neutral-900); }
+.iossteps li:first-child { border-top: 0; }
+.iossteps li::before { content: counter(s); position: absolute; left: 0; top: 9px; width: 26px; height: 26px;
+  display: grid; place-items: center; border-radius: 50%; background: rgba(201,164,78,.15);
+  color: var(--gold-bright); font: 600 12px var(--font-heading); }
+.iossteps b { color: var(--color-text); }
+.iossteps i { color: var(--gold); }
+
+/* — Cookie notice — */
+.cookiebar { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 58;
+  width: calc(100% - 24px); max-width: 420px; display: flex; align-items: center; gap: 12px;
+  padding: 12px 14px; background: var(--color-surface); border: 1px solid var(--color-neutral-800);
+  border-radius: 14px; box-shadow: 0 12px 30px rgba(0,0,0,.5); font: 400 12px/1.45 var(--font-body);
+  color: var(--color-neutral-400); }
+.cookiebar a { color: var(--gold-bright); }
+.cookiebar .cookieok { flex: 0 0 auto; padding: 8px 14px; border: 0; border-radius: 9px;
+  background: linear-gradient(180deg, var(--gold-bright), var(--gold)); color: #161826;
+  font: 600 12px var(--font-heading); cursor: pointer; }

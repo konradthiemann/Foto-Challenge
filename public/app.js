@@ -14,6 +14,27 @@ function timeOf(ts) {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
+function dateOf(ts) {
+  return new Date(ts).toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' });
+}
+
+// Freemium tiers — must mirror src/pricing.js. Free up to 5 guests, then stepwise.
+const PRICE_TIERS = [
+  { upTo: 5, cents: 0 },
+  { upTo: 15, cents: 990 },
+  { upTo: 30, cents: 1990 },
+  { upTo: 60, cents: 3490 },
+  { upTo: 120, cents: 4990 },
+  { upTo: 200, cents: 6990 },
+];
+function priceCentsFor(g) {
+  return (PRICE_TIERS.find((t) => g <= t.upTo) || PRICE_TIERS[PRICE_TIERS.length - 1]).cents;
+}
+function priceLabel(g) {
+  const c = priceCentsFor(g);
+  return c === 0 ? 'Kostenlos' : `${(c / 100).toFixed(2).replace('.', ',')} €`;
+}
+
 async function api(method, url, body, isForm) {
   const opts = { method, credentials: 'same-origin', headers: {} };
   if (body && isForm) {
@@ -96,7 +117,14 @@ function renderStart() {
         <button class="join-btn" id="join" aria-label="Beitreten"><i class="ph-fill ph-arrow-right"></i></button>
       </div>
       <button class="sec mt-lg" id="host">Als Gastgeber starten</button>
-      <div style="height:20px"></div>
+      <div class="grow"></div>
+      <div class="footlinks">
+        <a href="/landing" target="_blank" rel="noopener">Was ist das?</a>
+        <a href="/impressum" target="_blank" rel="noopener">Impressum</a>
+        <a href="/datenschutz" target="_blank" rel="noopener">Datenschutz</a>
+        <a href="/agb" target="_blank" rel="noopener">AGB</a>
+      </div>
+      <div style="height:16px"></div>
     </div>`;
   document.getElementById('scan').onclick = openScanner;
   document.getElementById('host').onclick = () => navigate('/host');
@@ -267,6 +295,10 @@ function screenJoin() {
       <input class="nm" id="name" placeholder="Dein Name" autocomplete="name" maxlength="40">
       ${pwField}
       <p class="hint">Kein Konto nötig. Der Name erscheint in der Galerie.</p>
+      <label class="consent" style="margin-top:16px">
+        <input type="checkbox" id="consent">
+        <span>Ich bin einverstanden, dass mein Name und meine Fotos in der Event-Galerie gespeichert und den anderen Gästen gezeigt werden. <a href="/datenschutz" target="_blank" rel="noopener">Datenschutz</a></span>
+      </label>
       <div class="err" id="err"></div>
       <div class="grow"></div>
       <button class="pri" id="go">Los geht's<i class="ph-fill ph-arrow-right"></i></button>
@@ -283,11 +315,13 @@ async function doJoin() {
   const name = document.getElementById('name').value.trim();
   const pwEl = document.getElementById('pw');
   const password = pwEl ? pwEl.value : '';
+  const consent = document.getElementById('consent').checked;
   const err = document.getElementById('err');
   if (!name) { err.textContent = 'Bitte gib deinen Namen ein.'; return; }
+  if (!consent) { err.textContent = 'Bitte stimme der Speicherung deiner Fotos zu.'; return; }
   const btn = document.getElementById('go');
   btn.disabled = true;
-  const res = await api('POST', `/api/events/${state.eventId}/join`, { name, password });
+  const res = await api('POST', `/api/events/${state.eventId}/join`, { name, password, consent });
   btn.disabled = false;
   if (res.ok) {
     state.me = res.data;
@@ -297,6 +331,7 @@ async function doJoin() {
   const map = {
     bad_password: 'Falsches Passwort.',
     name_required: 'Bitte gib deinen Namen ein.',
+    consent_required: 'Bitte stimme der Speicherung deiner Fotos zu.',
     full: 'Diese Feier ist leider schon voll.',
   };
   err.textContent = map[res.data && res.data.error] || 'Beitritt fehlgeschlagen.';
@@ -424,6 +459,7 @@ function screenSuccess() {
 async function screenGallery() {
   root.innerHTML = `<div class="screen" style="padding-bottom:12px">
       <div class="gallery-head"><h2 class="title" style="font-size:24px">Galerie</h2><span class="muted" id="gcount" style="font-size:12px"></span></div>
+      <div class="galbar"><a class="dlall" id="dlzip" href="/api/events/${state.eventId}/download.zip"><i class="ph ph-download-simple"></i>Galerie herunterladen</a></div>
       <div class="rule" style="margin:14px 0 18px"></div>
       <div class="grid" id="grid"><div class="loading" style="grid-column:1/-1"><i class="ph ph-spinner-gap" style="font-size:24px;animation:spin 1s linear infinite"></i></div></div>
     </div>${navBar('gallery')}`;
@@ -432,6 +468,8 @@ async function screenGallery() {
   const grid = document.getElementById('grid');
   if (!res.ok) { grid.innerHTML = '<div class="empty" style="grid-column:1/-1">Galerie nicht verfügbar.</div>'; return; }
   document.getElementById('gcount').textContent = `${res.data.count} Fotos`;
+  const dz = document.getElementById('dlzip');
+  if (dz) dz.style.display = res.data.count ? '' : 'none';
   if (res.data.count === 0) {
     grid.innerHTML = '<div class="empty" style="grid-column:1/-1">Noch keine Fotos. Sei die/der Erste!</div>';
     return;
@@ -475,6 +513,7 @@ function screenDetail() {
         <p style="font:400 16px/1.4 var(--font-body);margin:8px 0 0;text-wrap:pretty">${esc(p.text)}</p>
         <div class="taskmeta"><i class="ph ph-user-circle"></i>${esc(p.guestName)} · ${timeOf(p.createdAt)}</div>
       </div>
+      <a class="sec mt" href="${src}?dl=1" download><i class="ph ph-download-simple"></i>Foto herunterladen</a>
     </div>`;
   document.getElementById('back').onclick = () => {
     if (state.galleryReturn === 'host') { state.hostTab = 'gallery'; return renderHostDashboardView(); }
@@ -502,7 +541,8 @@ function wireNav() {
 // ── Host: create ────────────────────────────────────────────────────────────
 function renderHostCreate() {
   state.eventId = null;
-  let guests = 20;
+  let guests = 5;
+  const freeNote = 'Kostenlos bis 5 Gäste';
   root.innerHTML = `
     <div class="screen">
       ${backButton('Startseite')}
@@ -524,21 +564,26 @@ function renderHostCreate() {
       </div>
 
       <div class="pricebox">
-        <div><div class="muted" style="font-size:12px">bis <span id="gval2">${guests}</span> Gäste</div><div class="amount" id="price">14,90 €</div></div>
-        <span class="muted" style="font-size:11px;text-align:right;max-width:120px">einmalig, für den ganzen Abend</span>
+        <div><div class="muted" style="font-size:12px">bis <span id="gval2">${guests}</span> Gäste</div><div class="amount" id="price">${priceLabel(guests)}</div></div>
+        <span class="muted" style="font-size:11px;text-align:right;max-width:120px" id="pricenote">${freeNote}</span>
       </div>
+
+      <label class="consent" style="margin-top:20px">
+        <input type="checkbox" id="agb">
+        <span>Ich akzeptiere die <a href="/agb" target="_blank" rel="noopener">AGB</a> und die <a href="/datenschutz" target="_blank" rel="noopener">Datenschutzerklärung</a>.</span>
+      </label>
 
       <div class="err" id="err"></div>
       <div class="grow"></div>
       <button class="pri" id="go">Session starten<i class="ph-fill ph-arrow-right"></i></button>
-      <div style="height:16px"></div>
+      <p class="hint" style="text-align:center">Fotos & Galerie werden nach 30 Tagen automatisch gelöscht.</p>
     </div>`;
 
-  const price = (g) => (g <= 20 ? '14,90' : g <= 50 ? '29,90' : '49,90');
   const sync = () => {
     document.getElementById('gval').textContent = guests;
     document.getElementById('gval2').textContent = guests;
-    document.getElementById('price').textContent = `${price(guests)} €`;
+    document.getElementById('price').textContent = priceLabel(guests);
+    document.getElementById('pricenote').textContent = priceCentsFor(guests) === 0 ? freeNote : 'einmalig, für den ganzen Abend';
   };
   root.querySelector('.backbtn').onclick = () => navigate('/');
   document.getElementById('dec').onclick = () => { guests = Math.max(5, guests - 5); sync(); };
@@ -549,6 +594,7 @@ function renderHostCreate() {
     const err = document.getElementById('err');
     if (!name) { err.textContent = 'Bitte gib der Feier einen Namen.'; return; }
     if (pw.length < 3) { err.textContent = 'Bitte wähle ein Passwort (mind. 3 Zeichen).'; return; }
+    if (!document.getElementById('agb').checked) { err.textContent = 'Bitte akzeptiere AGB und Datenschutz.'; return; }
     const btn = document.getElementById('go');
     btn.disabled = true;
     const res = await api('POST', '/api/host/events', { name, guestLimit: guests, guestPassword: pw });
@@ -627,12 +673,14 @@ function hostOverview() {
       </div>
       <div class="uppermeta" style="margin:22px 0 4px">Zuletzt hinzugefügt</div>
       <div class="grid3">${thumbs}</div>
+      ${s.expiresAt ? `<p class="hint" style="text-align:center;margin-top:16px"><i class="ph ph-clock-countdown"></i> Galerie & Fotos werden am ${dateOf(s.expiresAt)} automatisch gelöscht.</p>` : ''}
     </div>`, 'overview');
 }
 
 async function hostGallery() {
   hostShell(`<div class="screen" style="padding-bottom:12px">
       <div class="gallery-head"><h2 class="title" style="font-size:24px">Galerie</h2><span class="muted" id="gcount" style="font-size:12px"></span></div>
+      <div class="galbar"><a class="dlall" id="dlzip" href="/api/events/${state.eventId}/download.zip"><i class="ph ph-download-simple"></i>Galerie herunterladen</a></div>
       <div class="rule" style="margin:14px 0 18px"></div>
       <div class="grid" id="grid"><div class="loading" style="grid-column:1/-1"><i class="ph ph-spinner-gap" style="font-size:24px;animation:spin 1s linear infinite"></i></div></div>
     </div>`, 'gallery');
@@ -640,6 +688,8 @@ async function hostGallery() {
   const grid = document.getElementById('grid');
   if (!res.ok) { grid.innerHTML = '<div class="empty" style="grid-column:1/-1">Galerie nicht verfügbar.</div>'; return; }
   document.getElementById('gcount').textContent = `${res.data.count} Fotos`;
+  const dz = document.getElementById('dlzip');
+  if (dz) dz.style.display = res.data.count ? '' : 'none';
   if (res.data.count === 0) { grid.innerHTML = '<div class="empty" style="grid-column:1/-1">Noch keine Fotos.</div>'; return; }
   grid.innerHTML = res.data.photos.map((p) => tileHtml(p)).join('');
   wireTiles(grid, res.data.photos, 'host');
@@ -669,8 +719,91 @@ function hostInvite() {
   };
 }
 
+// ── Install prompt (FAB) ─────────────────────────────────────────────────────
+// Android/Chrome: capture beforeinstallprompt and offer a one-tap install FAB.
+// iOS/Safari: no programmatic install exists, so the FAB opens instructions.
+function isStandalone() {
+  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+}
+function isIos() {
+  return /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
+}
+
+let deferredInstall = null;
+
+function showInstallFab() {
+  if (isStandalone() || document.getElementById('installfab')) return;
+  const fab = document.createElement('button');
+  fab.id = 'installfab';
+  fab.className = 'installfab';
+  fab.innerHTML = '<i class="ph-fill ph-download-simple"></i><span>App installieren</span>';
+  fab.onclick = onInstallClick;
+  document.body.appendChild(fab);
+}
+
+async function onInstallClick() {
+  if (deferredInstall) {
+    deferredInstall.prompt();
+    const { outcome } = await deferredInstall.userChoice;
+    deferredInstall = null;
+    if (outcome === 'accepted') { const f = document.getElementById('installfab'); if (f) f.remove(); }
+    return;
+  }
+  showIosInstallGuide();
+}
+
+function showIosInstallGuide() {
+  if (document.getElementById('iosguide')) return;
+  const ov = document.createElement('div');
+  ov.id = 'iosguide';
+  ov.className = 'iosguide';
+  ov.innerHTML = `
+    <div class="ioscard">
+      <button class="iosclose" aria-label="Schließen"><i class="ph ph-x"></i></button>
+      <div class="logo" style="margin:0 auto 14px"><i class="ph-fill ph-camera"></i></div>
+      <h3 class="title" style="font-size:20px;text-align:center">Zum Home-Bildschirm</h3>
+      <p class="lead" style="max-width:none;text-align:center;margin:8px auto 18px">So hast du die Foto-Challenge wie eine App direkt auf dem Handy.</p>
+      <ol class="iossteps">
+        <li>Tippe unten auf <b>Teilen</b> <i class="ph ph-export"></i></li>
+        <li>Wähle <b>Zum Home-Bildschirm</b> <i class="ph ph-plus-square"></i></li>
+        <li>Tippe oben rechts auf <b>Hinzufügen</b></li>
+      </ol>
+    </div>`;
+  document.body.appendChild(ov);
+  const close = () => ov.remove();
+  ov.querySelector('.iosclose').onclick = close;
+  ov.onclick = (e) => { if (e.target === ov) close(); };
+}
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredInstall = e;
+  showInstallFab();
+});
+window.addEventListener('appinstalled', () => {
+  const f = document.getElementById('installfab'); if (f) f.remove();
+});
+
+// ── Cookie / storage notice ──────────────────────────────────────────────────
+// Only strictly-necessary cookies are used (session), so this is an info notice,
+// not a blocking consent banner.
+function showCookieNotice() {
+  if (localStorage.getItem('cookieAck') === '1' || isStandalone()) return;
+  const bar = document.createElement('div');
+  bar.className = 'cookiebar';
+  bar.innerHTML = `
+    <span>Wir nutzen nur technisch notwendige Cookies, damit du eingeloggt bleibst. <a href="/datenschutz" target="_blank" rel="noopener">Mehr erfahren</a></span>
+    <button class="cookieok">Verstanden</button>`;
+  document.body.appendChild(bar);
+  bar.querySelector('.cookieok').onclick = () => { localStorage.setItem('cookieAck', '1'); bar.remove(); };
+}
+
 // ── Boot ────────────────────────────────────────────────────────────────────
 const spin = document.createElement('style');
 spin.textContent = '@keyframes spin{to{transform:rotate(360deg)}}';
 document.head.appendChild(spin);
 render();
+
+// iOS never fires beforeinstallprompt — show the FAB proactively there.
+if (isIos() && !isStandalone()) showInstallFab();
+showCookieNotice();
