@@ -748,7 +748,10 @@ function isStandalone() {
   return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 }
 function isIos() {
-  return /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
+  if (window.MSStream) return false;
+  if (/iphone|ipad|ipod/i.test(navigator.userAgent)) return true;
+  // iPadOS 13+ reports a desktop "Macintosh" UA — detect it via touch points.
+  return navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
 }
 
 let deferredInstall = null;
