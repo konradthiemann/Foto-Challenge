@@ -259,9 +259,11 @@ app.post('/api/host/events', (req, res) => {
   const name = String(req.body.name || '').trim().slice(0, 80);
   const guestLimit = Math.max(5, Math.min(200, parseInt(req.body.guestLimit, 10) || 5));
   const password = String(req.body.guestPassword || '');
+  const hostPassword = String(req.body.hostPassword || '');
 
   if (!name) return res.status(400).json({ error: 'name_required' });
   if (password.length < 3) return res.status(400).json({ error: 'password_too_short' });
+  if (hostPassword.length < 4) return res.status(400).json({ error: 'host_password_too_short' });
 
   const id = uniqueEventId(name);
   const hostToken = randomId(16);
@@ -269,9 +271,9 @@ app.post('/api/host/events', (req, res) => {
   const createdAt = Date.now();
   const expiresAt = createdAt + RETENTION_MS;
   db.prepare(`
-    INSERT INTO events (id, name, guest_limit, guest_password_hash, host_token, join_code, created_at, expires_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(id, name, guestLimit, hashPassword(password), hostToken, joinCode, createdAt, expiresAt);
+    INSERT INTO events (id, name, guest_limit, guest_password_hash, host_password_hash, host_token, join_code, created_at, expires_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(id, name, guestLimit, hashPassword(password), hashPassword(hostPassword), hostToken, joinCode, createdAt, expiresAt);
 
   res.cookie(hostCookieName(id), signToken({ eventId: id, host: true }), COOKIE_BASE);
 
@@ -295,6 +297,20 @@ app.post('/api/host/events/:id/auth', (req, res) => {
   if (token !== ev.host_token) return res.status(401).json({ error: 'bad_token' });
   res.cookie(hostCookieName(ev.id), signToken({ eventId: ev.id, host: true }), COOKIE_BASE);
   res.json({ ok: true });
+});
+
+// Host recovery: log back in with the event code (or slug) + host password.
+// Lets the host return on any device even after cookies/localStorage are gone.
+app.post('/api/host/login', (req, res) => {
+  const ev = getEventByIdOrCode(req.body.code);
+  const password = String(req.body.password || '');
+  if (!ev) return res.status(404).json({ error: 'not_found' });
+  if (!ev.host_password_hash) return res.status(409).json({ error: 'no_host_password' });
+  if (!verifyPassword(password, ev.host_password_hash)) {
+    return res.status(401).json({ error: 'bad_password' });
+  }
+  res.cookie(hostCookieName(ev.id), signToken({ eventId: ev.id, host: true }), COOKIE_BASE);
+  res.json({ eventId: ev.id });
 });
 
 app.get('/api/host/events/:id/stats', requireHost, (req, res) => {
@@ -455,11 +471,33 @@ app.post('/api/events/:id/join', (req, res) => {
   if (ev.guest_password_hash && !verifyPassword(password, ev.guest_password_hash)) {
     return res.status(401).json({ error: 'bad_password' });
   }
+
+  const now = Date.now();
+
+  // Resume an existing identity: if someone rejoins with the same name (e.g. they
+  // cleared cookies or switched devices), continue their guest instead of creating
+  // a duplicate, so their photos and progress stay under that name.
+  const existing = db.prepare(
+    'SELECT * FROM guests WHERE event_id = ? AND name = ? COLLATE NOCASE',
+  ).get(ev.id, name);
+  if (existing) {
+    db.prepare('UPDATE guests SET consented_at = ? WHERE id = ?').run(now, existing.id);
+    let taskId = existing.current_task_id;
+    if (taskId == null) taskId = assignNextTask(existing.id);
+    const doneCount = db.prepare('SELECT COUNT(*) c FROM guest_task_done WHERE guest_id = ?').get(existing.id).c;
+    res.cookie(guestCookieName(ev.id), signToken({ eventId: ev.id, guestId: existing.id }), COOKIE_BASE);
+    return res.json({
+      guest: { id: existing.id, name: existing.name },
+      event: { id: ev.id, name: ev.name },
+      task: taskById(taskId),
+      doneCount,
+    });
+  }
+
   if (guestCount(ev.id) >= ev.guest_limit) {
     return res.status(403).json({ error: 'full' });
   }
 
-  const now = Date.now();
   const guestId = randomId(10);
   db.prepare('INSERT INTO guests (id, event_id, name, consented_at, created_at) VALUES (?, ?, ?, ?, ?)')
     .run(guestId, ev.id, name, now, now);

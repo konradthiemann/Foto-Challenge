@@ -17,6 +17,7 @@ db.exec(`
     name                TEXT NOT NULL,
     guest_limit         INTEGER NOT NULL DEFAULT 20,
     guest_password_hash TEXT,
+    host_password_hash  TEXT,
     host_token          TEXT NOT NULL,
     join_code           TEXT,
     created_at          INTEGER NOT NULL,
@@ -59,6 +60,10 @@ if (!eventCols.some((c) => c.name === 'join_code')) {
 // Migration: retention timestamp for automatic deletion (added later).
 if (!eventCols.some((c) => c.name === 'expires_at')) {
   db.exec('ALTER TABLE events ADD COLUMN expires_at INTEGER');
+}
+// Migration: host password lets the host log back in on any device.
+if (!eventCols.some((c) => c.name === 'host_password_hash')) {
+  db.exec('ALTER TABLE events ADD COLUMN host_password_hash TEXT');
 }
 // Migration: consent timestamp on guests (DSGVO accountability).
 const guestCols = db.prepare('PRAGMA table_info(guests)').all();

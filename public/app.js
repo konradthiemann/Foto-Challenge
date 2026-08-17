@@ -104,6 +104,7 @@ function render() {
   const seg = path.split('/').filter(Boolean);
   if (seg.length === 0) return renderStart();
   if (seg[0] === 'host' && seg.length === 1) return renderHostCreate();
+  if (seg[0] === 'host' && seg[1] === 'login') return renderHostLogin();
   if (seg[0] === 'host' && seg.length >= 2) return renderHostDashboard(seg[1]);
   return renderGuest(seg[0]);
 }
@@ -593,6 +594,10 @@ function renderHostCreate() {
       <input class="nm" id="pw" type="text" placeholder="Passwort für alle Gäste" maxlength="60">
       <p class="hint">Gäste brauchen dieses Passwort, um beizutreten und die Galerie zu sehen. Schreib es aufs Plakat.</p>
 
+      <label class="lbl" style="margin-top:20px">Host-Passwort</label>
+      <input class="nm" id="hostpw" type="password" placeholder="Nur für dich als Gastgeber" maxlength="60" autocomplete="new-password">
+      <p class="hint">Damit kommst du auf jedem Gerät wieder in dein Host-Menü, falls du die App schließt. Nicht aufs Plakat!</p>
+
       <label class="lbl" style="margin-top:20px">Anzahl Gäste</label>
       <div class="stepper">
         <button id="dec">−</button>
@@ -613,6 +618,7 @@ function renderHostCreate() {
       <div class="err" id="err"></div>
       <div class="grow"></div>
       <button class="pri" id="go">Session starten<i class="ph-fill ph-arrow-right"></i></button>
+      <p class="hint" style="text-align:center">Schon eine Feier gestartet? <a href="/host/login" id="tologin">Als Gastgeber anmelden</a></p>
       <p class="hint" style="text-align:center">Fotos & Galerie werden nach 30 Tagen automatisch gelöscht.</p>
     </div>`;
 
@@ -623,22 +629,65 @@ function renderHostCreate() {
     document.getElementById('pricenote').textContent = priceCentsFor(guests) === 0 ? freeNote : 'einmalig, für den ganzen Abend';
   };
   root.querySelector('.backbtn').onclick = () => navigate('/');
+  document.getElementById('tologin').onclick = (e) => { e.preventDefault(); navigate('/host/login'); };
   document.getElementById('dec').onclick = () => { guests = Math.max(5, guests - 5); sync(); };
   document.getElementById('inc').onclick = () => { guests = Math.min(200, guests + 5); sync(); };
   document.getElementById('go').onclick = async () => {
     const name = document.getElementById('name').value.trim();
     const pw = document.getElementById('pw').value;
+    const hostpw = document.getElementById('hostpw').value;
     const err = document.getElementById('err');
     if (!name) { err.textContent = 'Bitte gib der Feier einen Namen.'; return; }
-    if (pw.length < 3) { err.textContent = 'Bitte wähle ein Passwort (mind. 3 Zeichen).'; return; }
+    if (pw.length < 3) { err.textContent = 'Bitte wähle ein Galerie-Passwort (mind. 3 Zeichen).'; return; }
+    if (hostpw.length < 4) { err.textContent = 'Bitte wähle ein Host-Passwort (mind. 4 Zeichen).'; return; }
     if (!document.getElementById('agb').checked) { err.textContent = 'Bitte akzeptiere AGB und Datenschutz.'; return; }
     const btn = document.getElementById('go');
     btn.disabled = true;
-    const res = await api('POST', '/api/host/events', { name, guestLimit: guests, guestPassword: pw });
+    const res = await api('POST', '/api/host/events', { name, guestLimit: guests, guestPassword: pw, hostPassword: hostpw });
     btn.disabled = false;
     if (!res.ok) { err.textContent = 'Konnte nicht erstellt werden.'; return; }
     localStorage.setItem(`hosttoken_${res.data.eventId}`, res.data.hostToken);
     navigate(`/host/${res.data.eventId}`);
+  };
+}
+
+// ── Host: recovery login (Host-Passwort on any device) ──────────────────────
+function renderHostLogin(prefillCode) {
+  root.innerHTML = `
+    <div class="screen">
+      ${backButton('Zurück')}
+      <span class="kick">Gastgeber</span>
+      <h2 class="title" style="margin:12px 0 10px">Wieder anmelden</h2>
+      <p class="lead" style="margin-bottom:24px">Gib den Beitritts-Code deiner Feier und dein Host-Passwort ein, um zurück in deine Übersicht zu kommen.</p>
+
+      <label class="lbl">Beitritts-Code</label>
+      <input class="nm code-input" id="code" placeholder="z. B. FWH4C" maxlength="40" autocapitalize="characters" autocomplete="off">
+
+      <label class="lbl" style="margin-top:20px">Host-Passwort</label>
+      <input class="nm" id="hpw" type="password" placeholder="Dein Host-Passwort" maxlength="60" autocomplete="current-password">
+
+      <div class="err" id="err"></div>
+      <div class="grow"></div>
+      <button class="pri" id="go">Anmelden<i class="ph-fill ph-arrow-right"></i></button>
+    </div>`;
+  const codeEl = document.getElementById('code');
+  if (prefillCode) codeEl.value = prefillCode;
+  root.querySelector('.backbtn').onclick = () => navigate('/host');
+  document.getElementById('go').onclick = async () => {
+    const code = codeEl.value.trim().toLowerCase();
+    const password = document.getElementById('hpw').value;
+    const err = document.getElementById('err');
+    if (!code) { err.textContent = 'Bitte gib den Beitritts-Code ein.'; return; }
+    if (!password) { err.textContent = 'Bitte gib dein Host-Passwort ein.'; return; }
+    const btn = document.getElementById('go');
+    btn.disabled = true;
+    const res = await api('POST', '/api/host/login', { code, password });
+    btn.disabled = false;
+    if (res.ok) { navigate(`/host/${res.data.eventId}`); return; }
+    if (res.status === 404) { err.textContent = 'Feier nicht gefunden. Prüfe den Code.'; return; }
+    if (res.status === 409) { err.textContent = 'Für diese Feier gibt es kein Host-Passwort. Nutze deinen Host-Link (mit ?t=…).'; return; }
+    if (res.status === 401) { err.textContent = 'Falsches Passwort.'; return; }
+    err.textContent = 'Anmeldung fehlgeschlagen.';
   };
 }
 
@@ -664,7 +713,7 @@ async function renderHostDashboard(id) {
       if (a.ok) res = await api('GET', `/api/host/events/${id}/stats`);
     }
   }
-  if (res.status === 401) return renderHostLocked();
+  if (res.status === 401) return renderHostLocked(id);
   if (res.status === 404) return renderNotFound();
   if (!res.ok) return renderError();
   state.stats = res.data;
@@ -672,13 +721,15 @@ async function renderHostDashboard(id) {
   renderHostDashboardView();
 }
 
-function renderHostLocked() {
+function renderHostLocked(id) {
   root.innerHTML = `<div class="screen center"><div class="grow"></div>
     <i class="ph ph-lock-key" style="font-size:40px;color:var(--color-neutral-600)"></i>
     <h2 class="title" style="margin-top:18px">Kein Host-Zugang</h2>
-    <p class="lead" style="margin-top:10px">Öffne diese Übersicht über deinen persönlichen Host-Link (mit <code>?t=…</code>).</p>
+    <p class="lead" style="margin-top:10px">Melde dich mit deinem Host-Passwort wieder an — oder öffne die Übersicht über deinen persönlichen Host-Link (mit <code>?t=…</code>).</p>
     <div class="grow"></div>
-    <button class="sec" id="home">Zur Startseite</button><div style="height:16px"></div></div>`;
+    <button class="pri" id="login">Mit Host-Passwort anmelden<i class="ph-fill ph-arrow-right"></i></button>
+    <button class="sec" id="home" style="margin-top:12px">Zur Startseite</button><div style="height:16px"></div></div>`;
+  document.getElementById('login').onclick = () => renderHostLogin(id);
   document.getElementById('home').onclick = () => navigate('/');
 }
 
