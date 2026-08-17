@@ -300,6 +300,16 @@ input.nm:focus { border-color: var(--gold); }
 }
 .installfab i { font-size: 18px; }
 
+/* — Help FAB on the task screen — */
+.helpfab {
+  position: fixed; left: 16px; bottom: calc(76px + env(safe-area-inset-bottom)); z-index: 55;
+  width: 44px; height: 44px; border-radius: 50%; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--color-surface); color: var(--gold-bright);
+  border: 1px solid var(--color-border); box-shadow: 0 8px 20px rgba(0,0,0,.35);
+}
+.helpfab i { font-size: 22px; }
+
 /* — iOS install guide overlay — */
 .iosguide { position: fixed; inset: 0; z-index: 70; background: rgba(0,0,0,.6);
   display: flex; align-items: flex-end; justify-content: center; padding: 16px;

@@ -364,10 +364,37 @@ function screenTask() {
       <button class="pri" id="capture"><i class="ph-fill ph-camera"></i>Foto aufnehmen</button>
       <button class="sec mt" id="rotate"><i class="ph ph-shuffle"></i>Andere Aufgabe</button>
     </div>
+    <button class="helpfab" id="helpfab" aria-label="Hilfe"><i class="ph ph-question"></i></button>
     ${navBar('task')}`;
   document.getElementById('capture').onclick = openCamera;
   document.getElementById('rotate').onclick = rotateTask;
+  document.getElementById('helpfab').onclick = showTaskHelp;
   wireNav();
+}
+
+function showTaskHelp() {
+  if (document.getElementById('helpsheet')) return;
+  const ov = document.createElement('div');
+  ov.id = 'helpsheet';
+  ov.className = 'iosguide';
+  ov.innerHTML = `
+    <div class="ioscard">
+      <button class="iosclose" aria-label="Schließen"><i class="ph ph-x"></i></button>
+      <div class="logo" style="margin:0 auto 14px">${BRAND_MARK}</div>
+      <h3 class="title" style="font-size:20px;text-align:center">So funktioniert Knips</h3>
+      <ol class="iossteps">
+        <li>Lies deine <b>Aufgabe</b> — ein Foto mit jemandem oder etwas.</li>
+        <li>Tippe auf <b>Foto aufnehmen</b> <i class="ph ph-camera"></i> und knips den Moment.</li>
+        <li>Dein Bild landet in der <b>gemeinsamen Galerie</b> <i class="ph ph-images"></i>.</li>
+        <li>Keine Lust? <b>Andere Aufgabe</b> <i class="ph ph-shuffle"></i> holt eine neue.</li>
+      </ol>
+      <button class="sec mt" id="helpinstall"><i class="ph ph-download-simple"></i>Zum Home-Bildschirm hinzufügen</button>
+    </div>`;
+  document.body.appendChild(ov);
+  const close = () => ov.remove();
+  ov.querySelector('.iosclose').onclick = close;
+  ov.onclick = (e) => { if (e.target === ov) close(); };
+  ov.querySelector('#helpinstall').onclick = () => { close(); onInstallClick(); };
 }
 
 async function rotateTask() {
