@@ -616,14 +616,14 @@ app.get('/host/:id/print', async (req, res) => {
 </style></head>
 <body>
   <div class="poster">
-    <div class="kicker">Foto-Challenge</div>
+    <div class="kicker">Knips</div>
     <h1>${esc(ev.name)}</h1>
     <p class="lead">Scannen, Namen eingeben, mitspielen.</p>
     <div class="qr">${qr}</div>
     <div class="link">${esc(joinUrl.replace(/^https?:\/\//, ''))}</div>
     ${ev.join_code ? `<div class="code">oder Code <b>${esc(ev.join_code.toUpperCase())}</b> eingeben</div>` : ''}
     <ol class="steps">
-      <li>QR-Code scannen — mit der Foto-Challenge-App oder der Handykamera.</li>
+      <li>QR-Code scannen — mit der Knips-App oder der Handykamera.</li>
       <li>Namen eingeben${ev.guest_password_hash ? ' und das Party-Passwort eintippen' : ''}.</li>
       <li>Aufgabe bekommen, Foto machen, in die Galerie!</li>
     </ol>
@@ -653,4 +653,4 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'server_error' });
 });
 
-app.listen(PORT, () => console.log(`Foto-Challenge läuft auf Port ${PORT}`));
+app.listen(PORT, () => console.log(`Knips läuft auf Port ${PORT}`));

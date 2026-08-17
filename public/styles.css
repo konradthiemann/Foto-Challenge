@@ -1,4 +1,4 @@
-/* Foto-Challenge — Nocturne (dark) tokens with the prototype's gold accent. */
+/* Knips — Nocturne (dark) tokens with the prototype's gold accent. */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 :root {
@@ -130,6 +130,7 @@ input.nm:focus { border-color: var(--gold); }
   box-shadow: 0 12px 30px rgba(201,164,78,.3);
 }
 .logo i { font-size: 30px; }
+.logo .brandmark { width: 34px; height: 34px; display: block; }
 
 /* — Task card — */
 .taskcat { font: 400 10px var(--font-body); letter-spacing: .12em; text-transform: uppercase; color: var(--gold); margin-top: 20px; }

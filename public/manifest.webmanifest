@@ -1,7 +1,7 @@
 {
-  "name": "Foto-Challenge",
-  "short_name": "Foto-Challenge",
-  "description": "Party-Foto-Challenge: Aufgabe bekommen, Foto machen, in die gemeinsame Galerie.",
+  "name": "Knips — Knips den Moment",
+  "short_name": "Knips",
+  "description": "Knips — die Party-Foto-App: Aufgabe bekommen, Foto machen, in die gemeinsame Galerie.",
   "lang": "de",
   "dir": "ltr",
   "start_url": "/",

@@ -3,6 +3,14 @@
 // ── Utilities ──────────────────────────────────────────────────────────────
 const root = document.getElementById('app');
 
+// Knips brand mark: camera silhouette with a heart lens. Uses currentColor so
+// it inherits the surrounding logo/badge color.
+const BRAND_MARK = `<svg class="brandmark" viewBox="0 0 512 512" aria-hidden="true">
+  <path fill="none" stroke="currentColor" stroke-width="28" stroke-linejoin="round" stroke-linecap="round" d="M120 190 h60 l26 -34 h100 l26 34 h60 a24 24 0 0 1 24 24 v148 a24 24 0 0 1 -24 24 H120 a24 24 0 0 1 -24 -24 V214 a24 24 0 0 1 24 -24 Z"/>
+  <path fill="currentColor" transform="translate(256,300) scale(78)" d="M0 0.35 C -0.30 0.05, -0.50 -0.13, -0.50 -0.33 C -0.50 -0.49, -0.35 -0.60, -0.20 -0.55 C -0.10 -0.52, -0.03 -0.44, 0 -0.38 C 0.03 -0.44, 0.10 -0.52, 0.20 -0.55 C 0.35 -0.60, 0.50 -0.49, 0.50 -0.33 C 0.50 -0.13, 0.30 0.05, 0 0.35 Z"/>
+  <circle cx="366" cy="222" r="14" fill="currentColor"/>
+</svg>`;
+
 function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, (c) => (
     { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
@@ -105,9 +113,9 @@ function renderStart() {
   root.innerHTML = `
     <div class="screen center">
       <div class="grow"></div>
-      <div class="logo"><i class="ph-fill ph-camera"></i></div>
-      <h1 class="title">Foto-Challenge</h1>
-      <p class="lead" style="margin-top:12px">Kleine Aufgaben, echte Momente. Spielt gemeinsam durch den Abend.</p>
+      <div class="logo">${BRAND_MARK}</div>
+      <h1 class="title">Knips</h1>
+      <p class="lead" style="margin-top:12px">Knips den Moment. Kleine Aufgaben, echte Momente — spielt gemeinsam durch den Abend.</p>
       <div class="grow"></div>
       <button class="pri" id="scan"><i class="ph-fill ph-qr-code"></i>QR-Code scannen</button>
       <div class="or">oder Code eingeben</div>
@@ -281,12 +289,13 @@ function renderGuestScreen() {
 
 function screenJoin() {
   const info = state.info;
+  const isHost = !!localStorage.getItem(`hosttoken_${state.eventId}`);
   const pwField = info.requiresPassword ? `
     <label class="lbl" style="margin-top:18px">Party-Passwort</label>
     <input class="nm" id="pw" type="password" placeholder="Passwort vom Gastgeber" autocomplete="off">` : '';
   root.innerHTML = `
     <div class="screen">
-      ${backButton('Startseite')}
+      ${backButton(isHost ? 'Host-Menü' : 'Startseite')}
       <span class="kick">Du trittst bei</span>
       <h2 class="title" style="margin:14px 0 4px">${esc(info.name)}</h2>
       <p class="muted" style="font-size:13px;margin:0">Verbunden über QR-Code · ${info.guestCount} Gäste dabei</p>
@@ -306,7 +315,8 @@ function screenJoin() {
     </div>`;
   const nameEl = document.getElementById('name');
   nameEl.focus();
-  root.querySelector('.backbtn').onclick = () => navigate('/');
+  // If the current user is the host of this event, send them back to the dashboard.
+  root.querySelector('.backbtn').onclick = () => navigate(isHost ? `/host/${state.eventId}` : '/');
   document.getElementById('go').onclick = doJoin;
   nameEl.onkeydown = (e) => { if (e.key === 'Enter' && !info.requiresPassword) doJoin(); };
 }
@@ -342,7 +352,7 @@ function screenTask() {
   root.innerHTML = `
     <div class="screen" style="padding-bottom:16px">
       <div style="display:flex;align-items:center;justify-content:space-between">
-        <span class="kick">Foto·Challenge</span>
+        <span class="kick">Knips</span>
         <span class="muted" style="font-size:11px">${esc(event.name)}</span>
       </div>
       <div class="rule"></div>
@@ -617,7 +627,16 @@ async function renderHostDashboard(id) {
     history.replaceState({}, '', `/host/${id}`);
   }
   renderLoading();
-  const res = await api('GET', `/api/host/events/${id}/stats`);
+  let res = await api('GET', `/api/host/events/${id}/stats`);
+  // No valid host cookie? Fall back to the token saved in localStorage so the
+  // host can return via /host/:id without the ?t= link.
+  if (res.status === 401) {
+    const saved = localStorage.getItem(`hosttoken_${id}`);
+    if (saved) {
+      const a = await api('POST', `/api/host/events/${id}/auth`, { token: saved });
+      if (a.ok) res = await api('GET', `/api/host/events/${id}/stats`);
+    }
+  }
   if (res.status === 401) return renderHostLocked();
   if (res.status === 404) return renderNotFound();
   if (!res.ok) return renderError();
@@ -671,10 +690,13 @@ function hostOverview() {
         <div class="stat"><div class="big">${s.guestCount}</div><div class="lbl2">von ${s.guestLimit} Gästen</div></div>
         <div class="stat"><div class="big">${s.photoCount}</div><div class="lbl2">Fotos gemacht</div></div>
       </div>
+      <button class="sec" id="hostjoin" style="margin-top:20px"><i class="ph ph-camera-plus"></i>Selbst mitmachen</button>
       <div class="uppermeta" style="margin:22px 0 4px">Zuletzt hinzugefügt</div>
       <div class="grid3">${thumbs}</div>
       ${s.expiresAt ? `<p class="hint" style="text-align:center;margin-top:16px"><i class="ph ph-clock-countdown"></i> Galerie & Fotos werden am ${dateOf(s.expiresAt)} automatisch gelöscht.</p>` : ''}
     </div>`, 'overview');
+  const hj = document.getElementById('hostjoin');
+  if (hj) hj.onclick = () => navigate(`/${state.eventId}`);
 }
 
 async function hostGallery() {
@@ -760,9 +782,9 @@ function showIosInstallGuide() {
   ov.innerHTML = `
     <div class="ioscard">
       <button class="iosclose" aria-label="Schließen"><i class="ph ph-x"></i></button>
-      <div class="logo" style="margin:0 auto 14px"><i class="ph-fill ph-camera"></i></div>
+      <div class="logo" style="margin:0 auto 14px">${BRAND_MARK}</div>
       <h3 class="title" style="font-size:20px;text-align:center">Zum Home-Bildschirm</h3>
-      <p class="lead" style="max-width:none;text-align:center;margin:8px auto 18px">So hast du die Foto-Challenge wie eine App direkt auf dem Handy.</p>
+      <p class="lead" style="max-width:none;text-align:center;margin:8px auto 18px">So hast du Knips wie eine App direkt auf dem Handy.</p>
       <ol class="iossteps">
         <li>Tippe unten auf <b>Teilen</b> <i class="ph ph-export"></i></li>
         <li>Wähle <b>Zum Home-Bildschirm</b> <i class="ph ph-plus-square"></i></li>

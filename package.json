@@ -1,7 +1,7 @@
 {
-  "name": "foto-challenge",
+  "name": "knips",
   "version": "1.0.0",
-  "description": "Foto-Challenge — party photo-challenge web app",
+  "description": "Knips — party photo-challenge web app",
   "type": "module",
   "main": "src/server.js",
   "scripts": {
