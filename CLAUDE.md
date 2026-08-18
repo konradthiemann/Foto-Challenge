@@ -182,7 +182,8 @@ must be configured per machine — they are never committed.
 
 ## Roadmap (planned, not built)
 
-- **Payment**: Stripe Checkout for events >5 guests → see `docs/stripe-plan.md` when ready
+- **Payment**: Stripe Checkout for events >5 guests → see `memory/stripe-plan.md`
+- **Agent system**: MCP-based automation (Gmail, Stripe, Sheets, Social, Apple Notes) → see `docs/agent-system-plan.md`
 - **Image optimization**: sharp resize on upload (max 1920px) to save volume space
 - **Tests**: Node 22 built-in test runner, API-level smoke tests
 - **Marketing**: Landing page exists, social media accounts TBD
