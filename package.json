@@ -17,6 +17,7 @@
     "cookie-parser": "^1.4.7",
     "express": "^4.21.2",
     "multer": "^2.0.1",
+    "nodemailer": "^9.0.5",
     "qrcode": "^1.5.4",
     "sharp": "^0.33.5"
   }

@@ -590,6 +590,10 @@ function renderHostCreate() {
       <label class="lbl">Name der Feier</label>
       <input class="nm" id="name" placeholder="z. B. Lisas 30. Geburtstag" maxlength="80">
 
+      <label class="lbl" style="margin-top:20px">Deine E-Mail-Adresse</label>
+      <input class="nm" id="email" type="email" placeholder="du@beispiel.de" maxlength="120" autocomplete="email" inputmode="email">
+      <p class="hint">Du bekommst alle wichtigen Links (Gäste-Link, Host-Menü, QR-Plakat) per E-Mail — dein Rettungsanker.</p>
+
       <label class="lbl" style="margin-top:20px">Galerie-Passwort</label>
       <input class="nm" id="pw" type="text" placeholder="Passwort für alle Gäste" maxlength="60">
       <p class="hint">Gäste brauchen dieses Passwort, um beizutreten und die Galerie zu sehen. Schreib es aufs Plakat.</p>
@@ -634,16 +638,18 @@ function renderHostCreate() {
   document.getElementById('inc').onclick = () => { guests = Math.min(200, guests + 5); sync(); };
   document.getElementById('go').onclick = async () => {
     const name = document.getElementById('name').value.trim();
+    const email = document.getElementById('email').value.trim();
     const pw = document.getElementById('pw').value;
     const hostpw = document.getElementById('hostpw').value;
     const err = document.getElementById('err');
     if (!name) { err.textContent = 'Bitte gib der Feier einen Namen.'; return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { err.textContent = 'Bitte gib eine gültige E-Mail-Adresse ein.'; return; }
     if (pw.length < 3) { err.textContent = 'Bitte wähle ein Galerie-Passwort (mind. 3 Zeichen).'; return; }
     if (hostpw.length < 4) { err.textContent = 'Bitte wähle ein Host-Passwort (mind. 4 Zeichen).'; return; }
     if (!document.getElementById('agb').checked) { err.textContent = 'Bitte akzeptiere AGB und Datenschutz.'; return; }
     const btn = document.getElementById('go');
     btn.disabled = true;
-    const res = await api('POST', '/api/host/events', { name, guestLimit: guests, guestPassword: pw, hostPassword: hostpw });
+    const res = await api('POST', '/api/host/events', { name, guestLimit: guests, guestPassword: pw, hostPassword: hostpw, hostEmail: email });
     btn.disabled = false;
     if (!res.ok) { err.textContent = 'Konnte nicht erstellt werden.'; return; }
     localStorage.setItem(`hosttoken_${res.data.eventId}`, res.data.hostToken);

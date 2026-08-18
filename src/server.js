@@ -15,6 +15,7 @@ import { priceCents, tierForGuests } from './pricing.js';
 import {
   hashPassword, verifyPassword, signToken, verifyToken, randomId,
 } from './auth.js';
+import { sendEventCreatedEmail } from './mailer.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
@@ -260,10 +261,14 @@ app.post('/api/host/events', (req, res) => {
   const guestLimit = Math.max(5, Math.min(200, parseInt(req.body.guestLimit, 10) || 5));
   const password = String(req.body.guestPassword || '');
   const hostPassword = String(req.body.hostPassword || '');
+  const hostEmail = String(req.body.hostEmail || '').trim().toLowerCase().slice(0, 120);
 
   if (!name) return res.status(400).json({ error: 'name_required' });
   if (password.length < 3) return res.status(400).json({ error: 'password_too_short' });
   if (hostPassword.length < 4) return res.status(400).json({ error: 'host_password_too_short' });
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(hostEmail)) {
+    return res.status(400).json({ error: 'email_invalid' });
+  }
 
   const id = uniqueEventId(name);
   const hostToken = randomId(16);
@@ -271,11 +276,23 @@ app.post('/api/host/events', (req, res) => {
   const createdAt = Date.now();
   const expiresAt = createdAt + RETENTION_MS;
   db.prepare(`
-    INSERT INTO events (id, name, guest_limit, guest_password_hash, host_password_hash, host_token, join_code, created_at, expires_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(id, name, guestLimit, hashPassword(password), hashPassword(hostPassword), hostToken, joinCode, createdAt, expiresAt);
+    INSERT INTO events (id, name, guest_limit, guest_password_hash, host_password_hash, host_email, host_token, join_code, created_at, expires_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(id, name, guestLimit, hashPassword(password), hashPassword(hostPassword), hostEmail, hostToken, joinCode, createdAt, expiresAt);
 
   res.cookie(hostCookieName(id), signToken({ eventId: id, host: true }), COOKIE_BASE);
+
+  // Fire-and-forget: the info mail must never block or fail event creation.
+  sendEventCreatedEmail({
+    to: hostEmail,
+    eventName: name,
+    joinCode: joinCode.toUpperCase(),
+    joinUrl: `${baseUrl(req)}/${id}`,
+    hostUrl: `${baseUrl(req)}/host/${id}?t=${hostToken}`,
+    printUrl: `${baseUrl(req)}/host/${id}/print?t=${hostToken}`,
+    expiresAt,
+    retentionDays: RETENTION_DAYS,
+  }).catch((err) => console.error('[mailer] event-created mail failed:', err.message));
 
   res.json({
     eventId: id,

@@ -18,6 +18,7 @@ db.exec(`
     guest_limit         INTEGER NOT NULL DEFAULT 20,
     guest_password_hash TEXT,
     host_password_hash  TEXT,
+    host_email          TEXT,
     host_token          TEXT NOT NULL,
     join_code           TEXT,
     created_at          INTEGER NOT NULL,
@@ -64,6 +65,10 @@ if (!eventCols.some((c) => c.name === 'expires_at')) {
 // Migration: host password lets the host log back in on any device.
 if (!eventCols.some((c) => c.name === 'host_password_hash')) {
   db.exec('ALTER TABLE events ADD COLUMN host_password_hash TEXT');
+}
+// Migration: host email for the event-created info mail.
+if (!eventCols.some((c) => c.name === 'host_email')) {
+  db.exec('ALTER TABLE events ADD COLUMN host_email TEXT');
 }
 // Migration: consent timestamp on guests (DSGVO accountability).
 const guestCols = db.prepare('PRAGMA table_info(guests)').all();
