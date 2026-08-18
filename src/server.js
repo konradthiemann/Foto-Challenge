@@ -361,6 +361,17 @@ app.get('/api/host/events/:id/stats', requireHost, (req, res) => {
   });
 });
 
+// Host can permanently delete their event + all photos.
+app.delete('/api/host/events/:id', requireHost, (req, res) => {
+  const ev = req.event;
+  for (const { filename } of db.prepare('SELECT filename FROM photos WHERE event_id = ?').all(ev.id)) {
+    fs.rm(path.join(UPLOAD_DIR, filename), { force: true }, () => {});
+  }
+  db.prepare('DELETE FROM events WHERE id = ?').run(ev.id); // CASCADE
+  console.log(`[delete] host deleted event ${ev.id} (${ev.name})`);
+  res.json({ ok: true });
+});
+
 // QR code (SVG) for the public join link. The link is not secret; the gallery
 // stays protected by the guest password.
 app.get('/api/host/events/:id/qr.svg', async (req, res) => {
