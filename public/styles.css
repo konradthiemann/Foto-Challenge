@@ -91,6 +91,8 @@ h2.title { font-size: 25px; }
   font: 500 14px var(--font-heading); cursor: pointer; transition: background .15s; text-decoration: none;
 }
 .sec:hover { background: rgba(255,255,255,.04); }
+.sec.danger { border-color: #e74c3c44; color: #e74c3c; }
+.sec.danger:hover { background: rgba(231,76,60,.08); }
 .mt { margin-top: 11px; }
 .mt-lg { margin-top: 20px; }
 

@@ -778,9 +778,19 @@ function hostOverview() {
       <div class="uppermeta" style="margin:22px 0 4px">Zuletzt hinzugefügt</div>
       <div class="grid3">${thumbs}</div>
       ${s.expiresAt ? `<p class="hint" style="text-align:center;margin-top:16px"><i class="ph ph-clock-countdown"></i> Galerie & Fotos werden am ${dateOf(s.expiresAt)} automatisch gelöscht.</p>` : ''}
+      <div style="margin-top:32px;padding-top:16px;border-top:1px solid var(--border)">
+        <button class="sec danger" id="hostdelete" style="width:100%"><i class="ph ph-trash"></i>Event löschen</button>
+      </div>
     </div>`, 'overview');
   const hj = document.getElementById('hostjoin');
   if (hj) hj.onclick = () => navigate(`/${state.eventId}`);
+  const hd = document.getElementById('hostdelete');
+  if (hd) hd.onclick = async () => {
+    if (!confirm(`Event „${s.name}" wirklich löschen? Alle Fotos und Daten werden unwiderruflich gelöscht.`)) return;
+    const res = await api('DELETE', `/api/host/events/${state.eventId}`);
+    if (res.ok) { toast('Event gelöscht'); navigate('/'); }
+    else toast('Löschen fehlgeschlagen', true);
+  };
 }
 
 async function hostGallery() {
