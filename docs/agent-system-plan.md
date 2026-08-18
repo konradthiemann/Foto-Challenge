@@ -283,6 +283,8 @@ Quellen → Claude → GitHub Issue:
 - [ ] E-Mail-Autoresponder-Templates
 - [ ] EÜR-Jahresabschluss-Workflow
 - [ ] Kleinunternehmergrenze-Warnung
+- [ ] Dependabot aktivieren (`.github/dependabot.yml`)
+- [ ] Regelmäßiger Dependency-/Tech-Stack-Scan (→ Abschnitt 8)
 
 ---
 
@@ -342,6 +344,74 @@ Alle MCP-Server werden in `~/.claude.json` oder Claude Desktop konfiguriert.
   }
 }
 ```
+
+---
+
+## 8. Dependency- & Tech-Stack-Updates
+
+### Ziel
+Regelmäßig prüfen ob Dependencies veraltet oder unsicher sind, Node-Runtime
+aktuell ist und Railway/Resend-Änderungen beachtet werden — bevor etwas
+in Produktion kaputtgeht.
+
+### Was geprüft wird
+
+| Bereich | Prüfung | Wie |
+|---------|---------|-----|
+| **npm Dependencies** | Veraltete Pakete, Security-Advisories | `npm outdated`, `npm audit` |
+| **Node.js Runtime** | Neue LTS-Version, EOL-Status von 22.x | Node.js Release Schedule |
+| **Railway Platform** | Nixpacks-Updates, neue Features, Deprecations | Railway Changelog / Docs MCP |
+| **Resend API** | API-Änderungen, neue Features | Resend Changelog |
+| **Browser-APIs** | PWA/SW-Änderungen, iOS-Safari-Updates | WebKit/Chromium Release Notes |
+| **CDN-Dependencies** | Phosphor Icons, jsQR, Chart.js | Versionen in HTML-Dateien |
+
+### Workflow (manuell oder per Claude Code)
+
+```
+Claude Code Prompt: "Dependency-Check für Knips"
+
+1. npm outdated --long          → welche Pakete haben Updates?
+2. npm audit                    → bekannte Vulnerabilities?
+3. node --version vs .nvmrc     → stimmen überein?
+4. Railway Docs MCP: Changelog  → Breaking Changes?
+5. Check engines.node           → ist 22.x noch LTS?
+6. CDN-Versionen in HTML prüfen → gibt es neuere?
+
+Ergebnis: Liste mit
+  - Kritisch (Security) → sofort updaten
+  - Empfohlen (Features/Performance) → beim nächsten Release
+  - Info (nice-to-have) → merken
+```
+
+### Automatisierung (optional, Phase 5)
+
+- **GitHub Dependabot**: `.github/dependabot.yml` für automatische PRs bei
+  npm-Updates (kostenlos, built-in). Einfachste Lösung.
+- **Claude Code Hook**: Regelmäßiger `/loop` mit Dependency-Check-Prompt
+  → Ergebnisse in Apple Notes oder GitHub Issue ablegen.
+
+### Dependabot-Config (ready to use)
+
+```yaml
+# .github/dependabot.yml
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+```
+
+### Wichtige Constraints beim Update
+
+- **better-sqlite3**: Braucht Node-Version mit Prebuilt-Binaries. Vor Node-Upgrade
+  prüfen ob Prebuilds existieren (sonst Build-Fail auf Railway).
+- **multer ^2**: Major-Version-Sprung (v1→v2) bereits gemacht. API ist stabil.
+- **archiver ^8**: Pure ESM, named exports only (`{ ZipArchive }`). Kein Default-Export.
+- **sharp**: Prebuilds nur für bestimmte Node+OS-Kombis. Testen vor Upgrade.
 
 ---
 
