@@ -68,3 +68,22 @@ jobs:
           echo "Health check failed"
           kill $SERVER_PID || true
           exit 1
+
+  # Auto-Deploy: nur bei Push/Merge auf main UND grünem CI (lint+test+smoke).
+  deploy:
+    name: Deploy to Railway
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [lint, test, smoke]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy (nur wenn RAILWAY_TOKEN gesetzt ist)
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          if [ -z "$RAILWAY_TOKEN" ]; then
+            echo "::notice::RAILWAY_TOKEN nicht gesetzt — Auto-Deploy übersprungen. Zum Aktivieren einen Railway-Projekt-Token als GitHub-Secret RAILWAY_TOKEN hinterlegen."
+            exit 0
+          fi
+          npm i -g @railway/cli
+          railway up --ci
