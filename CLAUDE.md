@@ -93,8 +93,9 @@ npm install
 PORT=3210 npm run dev    # --watch mode, auto-restart
 ```
 
-No build step. No linter configured. No test runner yet.
-CI (.github/workflows/ci.yml) runs `npm ci` + health-check smoke test only.
+No build step, no bundler (vanilla by design). Since the event-hardening: ESLint
+(`npm run lint`) + Node's built-in test runner (`npm test`, tests in `test/`).
+CI (.github/workflows/ci.yml) runs lint + tests + a health-check smoke test.
 
 ## Deployment
 
@@ -123,7 +124,7 @@ Railway project: `428d794f`, service: `15d4d882`, volume at `/data`.
 - **Join codes**: 5-char, alphabet `abcdefghjkmnpqrstuvwxyz23456789` (no ambiguous chars). Stored lowercase, displayed uppercase.
 - **Cookies**: Prefix `fch_` (host), `fcg_` (guest), `fca` (admin). HMAC-signed via SESSION_SECRET.
 - **Frontend routing**: Hash-free SPA — `navigate(path)` pushes history, `render()` matches `location.pathname`.
-- **No TypeScript, no JSDoc, no linter** — keep it vanilla and simple.
+- **No TypeScript, no bundler** — vanilla by design. ESLint + `node --test` cover the server code (`src/`); keep it simple.
 
 ## Glossary
 
@@ -185,5 +186,5 @@ must be configured per machine — they are never committed.
 - **Payment**: Stripe Checkout for events >5 guests → see `memory/stripe-plan.md`
 - **Agent system**: MCP-based automation (Gmail, Stripe, Sheets, Social, Apple Notes) → see `docs/agent-system-plan.md`
 - **Image optimization**: sharp resize on upload (max 1920px) to save volume space
-- **Tests**: Node 22 built-in test runner, API-level smoke tests
+- **Tests**: `node --test` unit tests (pricing/auth/tasks/images) — API-level integration tests next
 - **Marketing**: Landing page exists, social media accounts TBD

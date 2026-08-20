@@ -16,6 +16,8 @@ import {
   hashPassword, verifyPassword, signToken, verifyToken, randomId,
 } from './auth.js';
 import { sendEventCreatedEmail } from './mailer.js';
+import rateLimit from 'express-rate-limit';
+import { processAndStore } from './images.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
@@ -41,6 +43,25 @@ app.use((req, res, next) => {
 });
 app.use(express.json());
 app.use(cookieParser());
+
+// ── Rate-Limiting ─────────────────────────────────────────────────────────
+// Party-Kontext: ~50 Gäste teilen oft dasselbe WLAN (eine öffentliche IP), daher
+// IP-Limits nur großzügig gegen Skript-Missbrauch — das Upload-Limit läuft pro
+// Gast. trustProxy-Validierung aus, da hinter dem Railway-Proxy (trust proxy = true).
+const rlBase = {
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: { trustProxy: false },
+  message: { error: 'rate_limited' },
+};
+const joinLimiter = rateLimit({ ...rlBase, windowMs: 5 * 60_000, limit: 100 });
+const authLimiter = rateLimit({ ...rlBase, windowMs: 5 * 60_000, limit: 20 });
+const uploadLimiter = rateLimit({
+  ...rlBase,
+  windowMs: 10 * 60_000,
+  limit: 80,
+  keyGenerator: (req) => req.guest?.id || req.ip,
+});
 
 // ─────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -216,14 +237,10 @@ function requireHost(req, res, next) {
 // Uploads
 // ─────────────────────────────────────────────────────────────────────────
 
+// memoryStorage: der Buffer wird in der Route von images.js verkleinert +
+// EXIF-bereinigt und dann geschrieben (statt das Rohbild direkt abzulegen).
 const upload = multer({
-  storage: multer.diskStorage({
-    destination: UPLOAD_DIR,
-    filename: (req, file, cb) => {
-      const ext = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp', 'image/heic': '.heic' }[file.mimetype] || '.jpg';
-      cb(null, randomId(12) + ext);
-    },
-  }),
+  storage: multer.memoryStorage(),
   limits: { fileSize: 25 * 1024 * 1024 },
   fileFilter: (req, file, cb) => cb(null, file.mimetype.startsWith('image/')),
 });
@@ -314,7 +331,7 @@ app.post('/api/host/events', (req, res) => {
 });
 
 // Exchange a host token for a host session cookie (used when opening the host link).
-app.post('/api/host/events/:id/auth', (req, res) => {
+app.post('/api/host/events/:id/auth', authLimiter, (req, res) => {
   const ev = getEvent(req.params.id);
   const token = String(req.body.token || '');
   if (!ev) return res.status(404).json({ error: 'not_found' });
@@ -325,7 +342,7 @@ app.post('/api/host/events/:id/auth', (req, res) => {
 
 // Host recovery: log back in with the event code (or slug) + host password.
 // Lets the host return on any device even after cookies/localStorage are gone.
-app.post('/api/host/login', (req, res) => {
+app.post('/api/host/login', authLimiter, (req, res) => {
   const ev = getEventByIdOrCode(req.body.code);
   const password = String(req.body.password || '');
   if (!ev) return res.status(404).json({ error: 'not_found' });
@@ -396,7 +413,7 @@ function requireAdmin(req, res, next) {
   next();
 }
 
-app.post('/api/admin/auth', (req, res) => {
+app.post('/api/admin/auth', authLimiter, (req, res) => {
   const token = String(req.body.token || '');
   if (!ADMIN_TOKEN) return res.status(503).json({ error: 'admin_disabled' });
   const a = Buffer.from(token);
@@ -493,7 +510,7 @@ app.get('/api/events/:id/info', (req, res) => {
   });
 });
 
-app.post('/api/events/:id/join', (req, res) => {
+app.post('/api/events/:id/join', joinLimiter, (req, res) => {
   const ev = getEvent(req.params.id);
   if (!ev) return res.status(404).json({ error: 'not_found' });
 
@@ -565,16 +582,25 @@ app.post('/api/events/:id/task/rotate', requireGuest, (req, res) => {
   res.json({ task: taskById(taskId) });
 });
 
-app.post('/api/events/:id/photos', requireGuest, upload.single('photo'), (req, res) => {
+app.post('/api/events/:id/photos', requireGuest, uploadLimiter, upload.single('photo'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'no_file' });
   const taskId = req.guest.current_task_id;
   if (taskId == null) return res.status(400).json({ error: 'no_task' });
+
+  let filename;
+  try {
+    // Verkleinern + EXIF/GPS entfernen (fail-safe: speichert im Fehlerfall das Original).
+    ({ filename } = await processAndStore(req.file.buffer, req.file.mimetype, UPLOAD_DIR));
+  } catch (err) {
+    console.error('[upload] Bild konnte nicht gespeichert werden:', err.message);
+    return res.status(500).json({ error: 'upload_failed' });
+  }
 
   const photoId = randomId(10);
   db.prepare(`
     INSERT INTO photos (id, event_id, guest_id, task_id, filename, created_at)
     VALUES (?, ?, ?, ?, ?, ?)
-  `).run(photoId, req.params.id, req.guest.id, taskId, req.file.filename, Date.now());
+  `).run(photoId, req.params.id, req.guest.id, taskId, filename, Date.now());
   db.prepare('INSERT OR IGNORE INTO guest_task_done (guest_id, task_id) VALUES (?, ?)')
     .run(req.guest.id, taskId);
 
@@ -709,7 +735,7 @@ app.get('/host/:id/print', async (req, res) => {
 // SPA fallback
 // ─────────────────────────────────────────────────────────────────────────
 
-app.get('*', (req, res, next) => {
+app.get('*', (req, res) => {
   if (req.path.startsWith('/api/')) return res.status(404).json({ error: 'not_found' });
   // Validate single-segment event ids so obvious junk 404s instead of loading the app.
   const seg = req.path.split('/').filter(Boolean);
@@ -720,7 +746,7 @@ app.get('*', (req, res, next) => {
 });
 
 // Multer / generic error handler
-app.use((err, req, res, next) => {
+app.use((err, req, res, _next) => {
   if (err && err.code === 'LIMIT_FILE_SIZE') return res.status(413).json({ error: 'file_too_large' });
   console.error(err);
   res.status(500).json({ error: 'server_error' });
