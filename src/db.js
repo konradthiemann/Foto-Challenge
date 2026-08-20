@@ -51,6 +51,19 @@ db.exec(`
 
   CREATE INDEX IF NOT EXISTS idx_guests_event ON guests(event_id);
   CREATE INDEX IF NOT EXISTS idx_photos_event ON photos(event_id, created_at DESC);
+
+  -- Anonyme Nutzungs-Events (Funnel/Skips/Fehler). Keine Namen, keine Foto-Inhalte,
+  -- keine IP. Hängt am Event und wird per ON DELETE CASCADE mit ihm gelöscht
+  -- (Retention → Datenschutz). Auswertung im Admin-Dashboard + Symfony-Backend.
+  CREATE TABLE IF NOT EXISTS analytics_events (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    event_id   TEXT REFERENCES events(id) ON DELETE CASCADE,
+    type       TEXT NOT NULL,
+    meta       TEXT,
+    created_at INTEGER NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_analytics_event ON analytics_events(event_id, created_at);
+  CREATE INDEX IF NOT EXISTS idx_analytics_type ON analytics_events(type, created_at);
 `);
 
 // Migration: add join_code to events created before short codes existed.

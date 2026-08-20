@@ -18,6 +18,9 @@ import {
 import { sendEventCreatedEmail } from './mailer.js';
 import rateLimit from 'express-rate-limit';
 import { processAndStore } from './images.js';
+import {
+  logEvent, deviceClass, aggregate, rawEvents,
+} from './analytics.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
@@ -492,6 +495,18 @@ app.get('/api/admin/stats', requireAdmin, (req, res) => {
   });
 });
 
+// Aggregierte Analytics (Admin-Dashboard + Symfony-Backend). Doku: docs/analytics-api.md
+app.get('/api/admin/analytics', requireAdmin, (req, res) => {
+  res.json(aggregate({ eventId: req.query.event || null }));
+});
+
+// Rohe Analytics-Events ab Cursor (id > since) für inkrementelles ETL.
+app.get('/api/admin/analytics/raw', requireAdmin, (req, res) => {
+  const sinceId = parseInt(req.query.since, 10) || 0;
+  const limit = parseInt(req.query.limit, 10) || 500;
+  res.json({ events: rawEvents({ sinceId, limit }) });
+});
+
 // ─────────────────────────────────────────────────────────────────────────
 // API — events / guests
 // ─────────────────────────────────────────────────────────────────────────
@@ -499,6 +514,7 @@ app.get('/api/admin/stats', requireAdmin, (req, res) => {
 app.get('/api/events/:id/info', (req, res) => {
   const ev = getEventByIdOrCode(req.params.id);
   if (!ev) return res.status(404).json({ error: 'not_found' });
+  logEvent('app_open', ev.id, { device: deviceClass(req.get('user-agent')) });
   res.json({
     id: ev.id,
     name: ev.name,
@@ -517,10 +533,11 @@ app.post('/api/events/:id/join', joinLimiter, (req, res) => {
   const name = String(req.body.name || '').trim().slice(0, 40);
   const password = String(req.body.password || '');
   const consent = req.body.consent === true || req.body.consent === 'true';
-  if (!name) return res.status(400).json({ error: 'name_required' });
-  if (!consent) return res.status(400).json({ error: 'consent_required' });
+  if (!name) { logEvent('join_fail', ev.id, { reason: 'name_required' }); return res.status(400).json({ error: 'name_required' }); }
+  if (!consent) { logEvent('join_fail', ev.id, { reason: 'consent_required' }); return res.status(400).json({ error: 'consent_required' }); }
 
   if (ev.guest_password_hash && !verifyPassword(password, ev.guest_password_hash)) {
+    logEvent('join_fail', ev.id, { reason: 'bad_password' });
     return res.status(401).json({ error: 'bad_password' });
   }
 
@@ -537,6 +554,7 @@ app.post('/api/events/:id/join', joinLimiter, (req, res) => {
     let taskId = existing.current_task_id;
     if (taskId == null) taskId = assignNextTask(existing.id);
     const doneCount = db.prepare('SELECT COUNT(*) c FROM guest_task_done WHERE guest_id = ?').get(existing.id).c;
+    logEvent('join_success', ev.id, { resumed: true });
     res.cookie(guestCookieName(ev.id), signToken({ eventId: ev.id, guestId: existing.id }), COOKIE_BASE);
     return res.json({
       guest: { id: existing.id, name: existing.name },
@@ -547,6 +565,7 @@ app.post('/api/events/:id/join', joinLimiter, (req, res) => {
   }
 
   if (guestCount(ev.id) >= ev.guest_limit) {
+    logEvent('join_fail', ev.id, { reason: 'full' });
     return res.status(403).json({ error: 'full' });
   }
 
@@ -555,6 +574,7 @@ app.post('/api/events/:id/join', joinLimiter, (req, res) => {
     .run(guestId, ev.id, name, now, now);
   const taskId = assignNextTask(guestId);
 
+  logEvent('join_success', ev.id, { resumed: false });
   res.cookie(guestCookieName(ev.id), signToken({ eventId: ev.id, guestId }), COOKIE_BASE);
   res.json({
     guest: { id: guestId, name },
@@ -578,21 +598,25 @@ app.get('/api/events/:id/me', requireGuest, (req, res) => {
 });
 
 app.post('/api/events/:id/task/rotate', requireGuest, (req, res) => {
-  const taskId = assignNextTask(req.guest.id, req.guest.current_task_id);
+  const skipped = req.guest.current_task_id;
+  const taskId = assignNextTask(req.guest.id, skipped);
+  logEvent('task_rotate', req.params.id, { cat: taskById(skipped)?.cat || null });
   res.json({ task: taskById(taskId) });
 });
 
 app.post('/api/events/:id/photos', requireGuest, uploadLimiter, upload.single('photo'), async (req, res) => {
-  if (!req.file) return res.status(400).json({ error: 'no_file' });
+  if (!req.file) { logEvent('photo_fail', req.params.id, { reason: 'no_file' }); return res.status(400).json({ error: 'no_file' }); }
   const taskId = req.guest.current_task_id;
-  if (taskId == null) return res.status(400).json({ error: 'no_task' });
+  if (taskId == null) { logEvent('photo_fail', req.params.id, { reason: 'no_task' }); return res.status(400).json({ error: 'no_task' }); }
 
   let filename;
+  let processed = true;
   try {
     // Verkleinern + EXIF/GPS entfernen (fail-safe: speichert im Fehlerfall das Original).
-    ({ filename } = await processAndStore(req.file.buffer, req.file.mimetype, UPLOAD_DIR));
+    ({ filename, processed } = await processAndStore(req.file.buffer, req.file.mimetype, UPLOAD_DIR));
   } catch (err) {
     console.error('[upload] Bild konnte nicht gespeichert werden:', err.message);
+    logEvent('photo_fail', req.params.id, { reason: 'upload_failed' });
     return res.status(500).json({ error: 'upload_failed' });
   }
 
@@ -604,10 +628,12 @@ app.post('/api/events/:id/photos', requireGuest, uploadLimiter, upload.single('p
   db.prepare('INSERT OR IGNORE INTO guest_task_done (guest_id, task_id) VALUES (?, ?)')
     .run(req.guest.id, taskId);
 
+  logEvent('photo_upload', req.params.id, { cat: taskById(taskId)?.cat || null, processed });
   res.json({ photo: { id: photoId, task: taskById(taskId) } });
 });
 
 app.get('/api/events/:id/gallery', requireGuestOrHost, (req, res) => {
+  logEvent('gallery_view', req.params.id);
   const rows = db.prepare(`
     SELECT p.id, p.task_id, p.created_at, g.name AS guest_name
     FROM photos p JOIN guests g ON g.id = p.guest_id
@@ -647,6 +673,7 @@ app.get('/api/events/:id/photos/:photoId/image', requireGuestOrHost, (req, res) 
 app.get('/api/events/:id/download.zip', requireGuestOrHost, (req, res) => {
   const ev = getEvent(req.params.id);
   if (!ev) return res.status(404).end();
+  logEvent('download', ev.id);
   const photos = db.prepare(`
     SELECT p.id, p.task_id, p.filename, g.name AS guest_name
     FROM photos p JOIN guests g ON g.id = p.guest_id
@@ -747,7 +774,10 @@ app.get('*', (req, res) => {
 
 // Multer / generic error handler
 app.use((err, req, res, _next) => {
-  if (err && err.code === 'LIMIT_FILE_SIZE') return res.status(413).json({ error: 'file_too_large' });
+  if (err && err.code === 'LIMIT_FILE_SIZE') {
+    logEvent('photo_fail', req.params?.id || null, { reason: 'file_too_large' });
+    return res.status(413).json({ error: 'file_too_large' });
+  }
   console.error(err);
   res.status(500).json({ error: 'server_error' });
 });

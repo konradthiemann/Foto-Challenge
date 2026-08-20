@@ -21,6 +21,8 @@ src/auth.js       — scrypt hashing, HMAC-signed cookie tokens
 src/tasks.js      — 65 photo challenges (TASKS array)
 src/mailer.js     — Transactional email (Resend > SMTP > console)
 src/pricing.js    — Price tiers, tierForGuests, priceCents
+src/images.js     — Upload-Bildverarbeitung (Resize + EXIF/GPS-Strip, fail-safe)
+src/analytics.js  — anonymes Nutzungs-Event-Logging + Aggregation (docs/analytics-api.md)
 
 public/index.html — SPA shell
 public/app.js     — Client-side router + all screens
@@ -51,9 +53,11 @@ Railway's auto-assigned PORT.
 `engines.node` is `"22.x"`. Railpack defaults to Node 24 which has no
 better-sqlite3 prebuilt → build fails with missing Python. Keep it at 22.
 
-### Deploy via Railway CLI
-Not GitHub-connected for auto-deploy. Use `railway up --ci` to deploy.
-Push to GitHub separately with `git push origin main`.
+### Deploy: auto-deploy on green CI
+Merges/pushes to `main` auto-deploy to Railway **via the GitHub Actions `deploy`
+job** — but only after `lint`, `test` and `smoke` pass. Requires the
+`RAILWAY_TOKEN` repo secret; without it the deploy job skips (CI stays green).
+Manual fallback: `railway up --ci`.
 
 ### Brand: "Knips"
 - Name: **Knips**, claim: **"Knips den Moment."**
@@ -99,9 +103,11 @@ CI (.github/workflows/ci.yml) runs lint + tests + a health-check smoke test.
 
 ## Deployment
 
+Auto-deploy on push/merge to `main` **when CI is green** (`.github/workflows/ci.yml`
+→ `deploy` job, gated on the `RAILWAY_TOKEN` repo secret). Manual fallback:
+
 ```bash
-git push origin main     # GitHub
-railway up --ci          # Railway (separate, not auto-deploy)
+railway up --ci          # manueller Deploy
 ```
 
 Railway project: `428d794f`, service: `15d4d882`, volume at `/data`.
