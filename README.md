@@ -18,7 +18,7 @@
 
 ## 🎯 About
 
-Foto-Challenge ist eine Web-App für Partys, Hochzeiten und Feiern. Der Gastgeber legt eine Session an und erhält einen druckbaren QR-Code-Poster, das er mehrfach in der Halle aufhängen kann. Gäste scannen den Code, geben ihren Namen ein und bekommen aus einem Pool von 65 Foto-Aufgaben eine gestellt – Aufgaben, die die Gemeinschaft stärken und nie peinlich sind. Jedes Foto landet in einer gemeinsamen Galerie, die per Passwort geschützt ist, damit Fremde nicht mitschauen können.
+Foto-Challenge ist eine Web-App für Partys, Hochzeiten und Feiern. Der Gastgeber legt eine Session an und erhält einen druckbaren QR-Code-Poster, das er mehrfach in der Halle aufhängen kann. Gäste scannen den Code, geben ihren Namen ein und bekommen aus einem Pool von 207 Foto-Aufgaben eine gestellt – Aufgaben, die die Gemeinschaft stärken und nie peinlich sind. Jedes Foto landet in einer gemeinsamen Galerie, die per Passwort geschützt ist, damit Fremde nicht mitschauen können.
 
 **Kernziele:**
 - Denkbar niedrige Einstiegshürde für Gäste: QR scannen → Name → Aufgabe → Foto. Kein App-Download, keine Registrierung.
@@ -33,7 +33,7 @@ Foto-Challenge ist eine Web-App für Partys, Hochzeiten und Feiern. Der Gastgebe
 - **Gastgeber-Flow:** Event erstellen (Name, Gästezahl, Galerie- & Gast-Passwort), Dashboard mit Übersicht/Galerie/Einladen-Tabs.
 - **Druckbares QR-Poster:** `GET /host/:id/print?t=<token>` rendert ein aufhängbares Poster mit QR-Code, der auf `PUBLIC_BASE_URL/{eventId}` zeigt.
 - **Gast-Flow:** Beitreten mit Name (+ Gast-Passwort) → Aufgabe erhalten → Aufgabe rotieren → Foto aufnehmen → Erfolg → Galerie.
-- **65 Foto-Aufgaben** (siehe [`src/tasks.js`](src/tasks.js)), kuratiert und kategorisiert, gemeinschaftsstärkend statt peinlich.
+- **207 Foto-Aufgaben** (siehe [`src/tasks.js`](src/tasks.js)), kuratiert und kategorisiert, gemeinschaftsstärkend statt peinlich.
 - **Passwortgeschützte Galerie:** Fotos werden nur mit gültigem Gast- oder Gastgeber-Cookie inline ausgeliefert; Fremde werden geblockt.
 - **PWA:** Web-Manifest, Service Worker (App-Shell-Caching, network-first für Navigation), iOS-Homescreen-Icon.
 
@@ -62,7 +62,7 @@ root
 │  ├─ server.js      # Express-App: alle API-Routes, SPA-Fallback, druckbares QR-Poster
 │  ├─ db.js          # better-sqlite3 Bootstrap; Tables: events, guests, photos, guest_task_done
 │  ├─ auth.js        # scrypt-Hashing, HMAC-signierte Cookie-Tokens, randomId()
-│  └─ tasks.js       # 65 kuratierte Foto-Aufgaben (TASKS array, taskById/taskCount)
+│  └─ tasks.js       # 207 kuratierte Foto-Aufgaben (TASKS array, taskById/taskCount)
 ├─ public/
 │  ├─ index.html            # SPA-Shell + PWA-Meta-Tags, SW-Registrierung
 │  ├─ app.js                # Vanilla-JS SPA mit Client-Router (10 Screens)

@@ -18,7 +18,7 @@ get a photo task, take a photo, it lands in a shared password-protected gallery.
 src/server.js     — Express app, all API routes + SPA fallback + QR poster
 src/db.js         — better-sqlite3, migrations, DATA_DIR=/data
 src/auth.js       — scrypt hashing, HMAC-signed cookie tokens
-src/tasks.js      — 65 photo challenges (TASKS array)
+src/tasks.js      — 207 photo challenges (TASKS array)
 src/mailer.js     — Transactional email (Resend > SMTP > console)
 src/pricing.js    — Price tiers, tierForGuests, priceCents
 src/images.js     — Upload-Bildverarbeitung (Resize + EXIF/GPS-Strip, fail-safe)
@@ -43,7 +43,7 @@ railway.json      — Nixpacks builder config
 `public/sw.js` uses cache-first for the app shell. Installed PWAs will NOT
 pick up changes to app.js/styles.css/index.html unless the VERSION string
 in sw.js is incremented. **Always bump VERSION when touching any public/ file.**
-Current version: v9.
+Current version: v11.
 
 ### Port 3000 is occupied locally
 Use port 3210 for local dev (`PORT=3210 npm run dev`). Production uses
@@ -139,7 +139,7 @@ Railway project: `428d794f`, service: `15d4d882`, volume at `/data`.
 | **Event** | A party/gathering created by a host. Has a slug, join code, passwords, expiry. DB: `events` table. |
 | **Host** | Person who creates an event. Has hostToken + host password. One host per event. |
 | **Guest** | Person who joins an event by name + guest password. DB: `guests` table. |
-| **Task** | A photo challenge from `src/tasks.js` (65 total). Assigned randomly, can be rotated. |
+| **Task** | A photo challenge from `src/tasks.js` (207 total). Assigned randomly, can be rotated. |
 | **Gallery** | The shared, password-protected photo collection of an event. |
 | **Join Code** | 5-char code guests can type instead of scanning the QR / using the full URL. |
 | **Retention** | Events + all data auto-delete after RETENTION_DAYS (default 30). |
