@@ -43,7 +43,7 @@ railway.json      — Nixpacks builder config
 `public/sw.js` uses cache-first for the app shell. Installed PWAs will NOT
 pick up changes to app.js/styles.css/index.html unless the VERSION string
 in sw.js is incremented. **Always bump VERSION when touching any public/ file.**
-Current version: v11.
+Current version: v12.
 
 ### Port 3000 is occupied locally
 Use port 3210 for local dev (`PORT=3210 npm run dev`). Production uses
