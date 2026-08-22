@@ -779,11 +779,19 @@ function hostOverview() {
       <div class="grid3">${thumbs}</div>
       ${s.expiresAt ? `<p class="hint" style="text-align:center;margin-top:16px"><i class="ph ph-clock-countdown"></i> Galerie & Fotos werden am ${dateOf(s.expiresAt)} automatisch gelöscht.</p>` : ''}
       <div style="margin-top:32px;padding-top:16px;border-top:1px solid var(--border)">
-        <button class="sec danger" id="hostdelete" style="width:100%"><i class="ph ph-trash"></i>Event löschen</button>
+        <button class="sec" id="hostresend" style="width:100%"><i class="ph ph-envelope-simple"></i>Bestätigungsmail erneut senden</button>
+        <button class="sec danger" id="hostdelete" style="width:100%;margin-top:10px"><i class="ph ph-trash"></i>Event löschen</button>
       </div>
     </div>`, 'overview');
   const hj = document.getElementById('hostjoin');
   if (hj) hj.onclick = () => navigate(`/${state.eventId}`);
+  const hr = document.getElementById('hostresend');
+  if (hr) hr.onclick = async () => {
+    const res = await api('POST', `/api/host/events/${state.eventId}/resend-email`);
+    if (res.ok) toast('E-Mail wurde erneut gesendet.');
+    else if (res.data?.error === 'no_email_on_file') toast('Für dieses Event ist keine E-Mail hinterlegt.', true);
+    else toast('Senden fehlgeschlagen.', true);
+  };
   const hd = document.getElementById('hostdelete');
   if (hd) hd.onclick = async () => {
     if (!confirm(`Event „${s.name}" wirklich löschen? Alle Fotos und Daten werden unwiderruflich gelöscht.`)) return;

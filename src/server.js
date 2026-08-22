@@ -381,6 +381,29 @@ app.get('/api/host/events/:id/stats', requireHost, (req, res) => {
   });
 });
 
+// Resend the "event created" summary mail to the host's address on file —
+// e.g. when the original mail got lost or was for a different test event.
+app.post('/api/host/events/:id/resend-email', requireHost, async (req, res) => {
+  const ev = req.event;
+  if (!ev.host_email) return res.status(409).json({ error: 'no_email_on_file' });
+  try {
+    await sendEventCreatedEmail({
+      to: ev.host_email,
+      eventName: ev.name,
+      joinCode: (ev.join_code || '').toUpperCase(),
+      joinUrl: `${baseUrl(req)}/${ev.id}`,
+      hostUrl: `${baseUrl(req)}/host/${ev.id}?t=${ev.host_token}`,
+      printUrl: `${baseUrl(req)}/host/${ev.id}/print?t=${ev.host_token}`,
+      expiresAt: ev.expires_at,
+      retentionDays: RETENTION_DAYS,
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[mailer] resend failed:', err.message);
+    res.status(502).json({ error: 'send_failed' });
+  }
+});
+
 // Host can permanently delete their event + all photos.
 app.delete('/api/host/events/:id', requireHost, (req, res) => {
   const ev = req.event;
