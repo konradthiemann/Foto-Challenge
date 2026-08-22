@@ -2,7 +2,8 @@
 
 **Party photo-challenge web app** — Gäste scannen einen QR-Code, geben ihren Namen ein, bekommen eine Foto-Aufgabe, machen ein Foto und es landet in einer gemeinsamen, passwortgeschützten Event-Galerie.
 
-🌐 **Live:** <https://foto-challenge-production.up.railway.app>
+🚀 **Landingpage:** <https://knips.konradthiemann.de/landing>
+🌐 **Live-App:** <https://knips.konradthiemann.de>
 📖 **Dokumentation:** <https://konradthiemann.github.io/Foto-Challenge/>
 
 [![CI](https://github.com/konradthiemann/Foto-Challenge/actions/workflows/ci.yml/badge.svg)](https://github.com/konradthiemann/Foto-Challenge/actions/workflows/ci.yml)
