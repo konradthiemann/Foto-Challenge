@@ -316,7 +316,7 @@ app.post('/api/host/events', (req, res) => {
     joinCode: joinCode.toUpperCase(),
     joinUrl: `${baseUrl(req)}/${id}`,
     hostUrl: `${baseUrl(req)}/host/${id}?t=${hostToken}`,
-    printUrl: `${baseUrl(req)}/host/${id}/print?t=${hostToken}`,
+    printUrl: `${baseUrl(req)}/host/${id}/print?t=${hostToken}&pw=${encodeURIComponent(password)}`,
     expiresAt,
     retentionDays: RETENTION_DAYS,
   }).catch((err) => console.error('[mailer] event-created mail failed:', err.message));
@@ -738,6 +738,14 @@ app.get('/host/:id/print', async (req, res) => {
   });
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
+  // The guest password is only stored hashed — the server can't recover it.
+  // The host knows it (they chose it), so it travels as a query param from
+  // the frontend/creation email, just like the ?t= host token.
+  const password = ev.guest_password_hash ? String(req.query.pw || '') : '';
+  const passwordBlock = !ev.guest_password_hash ? '' : password
+    ? `<div class="password">Party-Passwort <b>${esc(password)}</b></div>`
+    : `<div class="password hint">Party-Passwort separat vom Gastgeber erfragen.</div>`;
+
   res.type('html').send(`<!doctype html>
 <html lang="de"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -757,6 +765,10 @@ app.get('/host/:id/print', async (req, res) => {
   .link { margin-top: 24px; font-size: 20px; font-weight: 600; }
   .code { margin-top: 12px; font-size: 15px; color: #444; }
   .code b { font-size: 26px; letter-spacing: .14em; color: #161826; font-weight: 700; }
+  .password { margin-top: 14px; font-size: 15px; color: #444; padding: 10px 16px; border-radius: 10px;
+              background: #faf3e2; border: 1px solid #e5cf94; }
+  .password b { font-size: 20px; letter-spacing: .06em; color: #8a6a1f; font-weight: 700; }
+  .password.hint { background: none; border: none; font-size: 13px; color: #888; padding: 0; }
   .steps { margin: 26px auto 0; max-width: 380px; text-align: left; font-size: 15px; color: #333; }
   .steps li { margin: 8px 0; }
   .print-btn { margin-top: 30px; padding: 12px 22px; font-size: 15px; border: 1px solid #c9a44e;
@@ -771,6 +783,7 @@ app.get('/host/:id/print', async (req, res) => {
     <div class="qr">${qr}</div>
     <div class="link">${esc(joinUrl.replace(/^https?:\/\//, ''))}</div>
     ${ev.join_code ? `<div class="code">oder Code <b>${esc(ev.join_code.toUpperCase())}</b> eingeben</div>` : ''}
+    ${passwordBlock}
     <ol class="steps">
       <li>QR-Code scannen — mit der Knips-App oder der Handykamera.</li>
       <li>Namen eingeben${ev.guest_password_hash ? ' und das Party-Passwort eintippen' : ''}.</li>

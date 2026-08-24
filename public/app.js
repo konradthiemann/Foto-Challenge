@@ -293,7 +293,8 @@ function screenJoin() {
   const isHost = !!localStorage.getItem(`hosttoken_${state.eventId}`);
   const pwField = info.requiresPassword ? `
     <label class="lbl" style="margin-top:18px">Party-Passwort</label>
-    <input class="nm" id="pw" type="password" placeholder="Passwort vom Gastgeber" autocomplete="off">` : '';
+    <input class="nm" id="pw" type="password" placeholder="Passwort vom Gastgeber" autocomplete="off">
+    <p class="hint">Nicht der 5-stellige Beitritts-Code — ein eigenes Passwort, das dir der Gastgeber gibt.</p>` : '';
   root.innerHTML = `
     <div class="screen">
       ${backButton(isHost ? 'Host-Menü' : 'Startseite')}
@@ -653,6 +654,9 @@ function renderHostCreate() {
     btn.disabled = false;
     if (!res.ok) { err.textContent = 'Konnte nicht erstellt werden.'; return; }
     localStorage.setItem(`hosttoken_${res.data.eventId}`, res.data.hostToken);
+    // Kept locally so the print poster (host-only) can show the plaintext
+    // password later — the server only ever stores a hash of it.
+    localStorage.setItem(`guestpw_${res.data.eventId}`, pw);
     navigate(`/host/${res.data.eventId}`);
   };
 }
@@ -822,6 +826,9 @@ async function hostGallery() {
 function hostInvite() {
   const id = state.eventId;
   const token = localStorage.getItem(`hosttoken_${id}`);
+  const guestPw = localStorage.getItem(`guestpw_${id}`);
+  const printParams = new URLSearchParams({ t: token || '' });
+  if (guestPw) printParams.set('pw', guestPw);
   const joinUrl = `${location.origin}/${id}`;
   hostShell(`
     <div class="screen center" style="background:radial-gradient(120% 60% at 50% 10%,#22253c,#161826)">
