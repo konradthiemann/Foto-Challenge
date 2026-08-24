@@ -1,3 +1,7 @@
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
 
 // Brennt den Aufgaben-Text unten ins Foto ein (für den "mit-aufgabe"-Ordner im
@@ -5,6 +9,27 @@ import sharp from 'sharp';
 // Verlaufs-Scrim (transparent -> schwarz) über den unteren Bildbereich — das
 // garantiert Lesbarkeit unabhängig vom Motiv, ohne Sonderfälle. Zusätzlich
 // bekommt der Text einen dünnen schwarzen Stroke für Kontrast am Scrim-Rand.
+//
+// Der Railway/Nixpacks-Container hat keine Systemschriften installiert, ohne
+// das hier würde sharp/librsvg den Text als leere Tofu-Boxen rendern (in der
+// lokalen Entwicklung mit installierten Systemschriften fällt das nicht auf —
+// bewusst hier fest verdrahtet, damit Rendering überall identisch ist statt
+// vom Host abzuhängen). fontconfig braucht dafür eine eigene fonts.conf mit
+// einem absoluten Pfad zur mitgelieferten Schrift — wird bei jedem Prozessstart
+// einmalig ins Tempverzeichnis geschrieben, um Mehrdeutigkeiten bei relativen
+// Pfaden (abhängig vom aktuellen Arbeitsverzeichnis) zu vermeiden.
+const FONTS_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'assets', 'fonts');
+const FONTCONFIG_CACHE_DIR = path.join(os.tmpdir(), 'knips-fontconfig-cache');
+const fontsConfPath = path.join(os.tmpdir(), 'knips-fonts.conf');
+fs.mkdirSync(FONTCONFIG_CACHE_DIR, { recursive: true });
+fs.writeFileSync(fontsConfPath, `<?xml version="1.0"?>
+<!DOCTYPE fontconfig SYSTEM "fonts.dtd">
+<fontconfig>
+  <dir>${FONTS_DIR}</dir>
+  <cachedir>${FONTCONFIG_CACHE_DIR}</cachedir>
+</fontconfig>
+`);
+process.env.FONTCONFIG_FILE = fontsConfPath;
 
 const SCRIM_HEIGHT_RATIO = 0.22;
 const MAX_LINES = 3;
@@ -96,9 +121,9 @@ export async function annotateWithTask(diskPath, taskText) {
       <text
         x="${width / 2}"
         y="${firstLineY}"
-        font-family="Inter, Arial, sans-serif"
+        font-family="DejaVu Sans"
         font-size="${fontSize}"
-        font-weight="600"
+        font-weight="bold"
         fill="white"
         stroke="black"
         stroke-width="${strokeWidth}"
