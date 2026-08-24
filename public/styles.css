@@ -26,6 +26,7 @@
 
 * , *::before, *::after { box-sizing: border-box; }
 html, body { height: 100%; }
+html { scroll-behavior: smooth; }
 body {
   margin: 0;
   background: var(--color-bg);
@@ -60,6 +61,9 @@ a { color: var(--gold); text-underline-offset: 3px; }
   padding: max(34px, env(safe-area-inset-top)) 26px 26px;
   animation: fade .25s ease;
 }
+/* Nav already clears the safe area above it, so the screen right after it
+   only needs regular breathing room, not the full top-safe-area padding. */
+.nav ~ .screen { padding-top: 20px; }
 @keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 .grow { flex: 1; }
 .center { align-items: center; text-align: center; }
@@ -185,10 +189,11 @@ input.nm:focus { border-color: var(--gold); }
 }
 .detail-img img { width: 100%; height: 100%; object-fit: contain; }
 
-/* — Bottom nav — */
+/* — Top nav — */
 .nav {
-  height: 62px; flex: none; border-top: 1px solid var(--color-neutral-900);
+  height: 62px; flex: none; border-bottom: 1px solid var(--color-neutral-900);
   display: flex; align-items: center; justify-content: space-around; padding: 0 24px;
+  padding-top: env(safe-area-inset-top);
 }
 .navi {
   display: flex; flex-direction: column; align-items: center; gap: 3px;
@@ -294,20 +299,35 @@ input.nm:focus { border-color: var(--gold); }
 
 /* — Install FAB — */
 .installfab {
-  position: fixed; right: 16px; bottom: calc(76px + env(safe-area-inset-bottom)); z-index: 55;
+  position: fixed; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom)); z-index: 55;
   display: inline-flex; align-items: center; gap: 8px; padding: 12px 18px; border: 0;
   border-radius: 999px; background: linear-gradient(180deg, var(--gold-bright), var(--gold));
   color: #161826; font: 600 13px var(--font-heading); cursor: pointer;
   box-shadow: 0 10px 26px rgba(201,164,78,.4);
 }
 .installfab i { font-size: 18px; }
-/* On screens with the bottom nav (task/gallery/host), install is offered via
-   the "?" help sheet instead — hide the floating FAB so it can't overlap. */
+/* On screens with the nav (task/gallery/host), install is offered via
+   the "?" help sheet instead — hide the floating FAB so it can't overlap
+   with the scroll-to-top FAB, which uses the same bottom-right slot. */
 body:has(.nav) .installfab { display: none; }
+
+/* — Scroll-to-top FAB (nav lives at the top now, so a long screen — mostly
+   the gallery grid — needs a quick way back up instead of a manual scroll) — */
+.scrolltopfab {
+  position: fixed; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom)); z-index: 55;
+  width: 44px; height: 44px; border-radius: 50%; border: 0; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--color-surface); color: var(--gold-bright);
+  border: 1px solid var(--color-border); box-shadow: 0 8px 20px rgba(0,0,0,.35);
+  opacity: 0; pointer-events: none; transform: translateY(8px);
+  transition: opacity .2s ease, transform .2s ease;
+}
+.scrolltopfab.show { opacity: 1; pointer-events: auto; transform: none; }
+.scrolltopfab i { font-size: 20px; }
 
 /* — Help FAB on the task screen — */
 .helpfab {
-  position: fixed; left: 16px; bottom: calc(76px + env(safe-area-inset-bottom)); z-index: 55;
+  position: fixed; left: 16px; bottom: calc(16px + env(safe-area-inset-bottom)); z-index: 55;
   width: 44px; height: 44px; border-radius: 50%; cursor: pointer;
   display: inline-flex; align-items: center; justify-content: center;
   background: var(--color-surface); color: var(--gold-bright);

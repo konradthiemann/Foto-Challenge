@@ -354,6 +354,7 @@ async function doJoin() {
 function screenTask() {
   const { task, event } = state.me;
   root.innerHTML = `
+    ${navBar('task')}
     <div class="screen" style="padding-bottom:16px">
       <div style="display:flex;align-items:center;justify-content:space-between">
         <span class="kick">Knips</span>
@@ -368,8 +369,7 @@ function screenTask() {
       <button class="pri" id="capture"><i class="ph-fill ph-camera"></i>Foto aufnehmen</button>
       <button class="sec mt" id="rotate"><i class="ph ph-shuffle"></i>Andere Aufgabe</button>
     </div>
-    <button class="helpfab" id="helpfab" aria-label="Hilfe"><i class="ph ph-question"></i></button>
-    ${navBar('task')}`;
+    <button class="helpfab" id="helpfab" aria-label="Hilfe"><i class="ph ph-question"></i></button>`;
   document.getElementById('capture').onclick = openCamera;
   document.getElementById('rotate').onclick = rotateTask;
   document.getElementById('helpfab').onclick = showTaskHelp;
@@ -502,12 +502,12 @@ function screenSuccess() {
 }
 
 async function screenGallery() {
-  root.innerHTML = `<div class="screen" style="padding-bottom:12px">
+  root.innerHTML = `${navBar('gallery')}<div class="screen" style="padding-bottom:12px">
       <div class="gallery-head"><h2 class="title" style="font-size:24px">Galerie</h2><span class="muted" id="gcount" style="font-size:12px"></span></div>
       <div class="galbar"><a class="dlall" id="dlzip" href="/api/events/${state.eventId}/download.zip"><i class="ph ph-download-simple"></i>Galerie herunterladen</a></div>
       <div class="rule" style="margin:14px 0 18px"></div>
       <div class="grid" id="grid"><div class="loading" style="grid-column:1/-1"><i class="ph ph-spinner-gap" style="font-size:24px;animation:spin 1s linear infinite"></i></div></div>
-    </div>${navBar('gallery')}`;
+    </div>`;
   wireNav();
   const res = await api('GET', `/api/events/${state.eventId}/gallery`);
   const grid = document.getElementById('grid');
@@ -579,12 +579,12 @@ function screenDetail() {
   }
 }
 
-// Bottom navigation shared by task/gallery
+// Top navigation shared by task/gallery
 function navBar(active) {
   return `<div class="nav">
       <button class="navi ${active === 'task' ? 'active' : ''}" data-nav="task"><i class="${active === 'task' ? 'ph-fill' : 'ph'} ph-target"></i>Aufgabe</button>
       <button class="navi ${active === 'gallery' ? 'active' : ''}" data-nav="gallery"><i class="${active === 'gallery' ? 'ph-fill' : 'ph'} ph-images"></i>Galerie</button>
-    </div>`;
+    </div>${scrollTopFab()}`;
 }
 function wireNav() {
   root.querySelectorAll('[data-nav]').forEach((el) => {
@@ -593,6 +593,24 @@ function wireNav() {
       renderGuestScreen();
     };
   });
+  wireScrollTopFab();
+}
+
+// Floating "back to top" button. The nav lives at the top of the page now,
+// so a long screen (mainly the photo grid) needs a quick way back up
+// instead of a manual scroll — shared by the guest nav and hostShell.
+function scrollTopFab() {
+  return '<button class="scrolltopfab" id="scrolltop" aria-label="Nach oben"><i class="ph-fill ph-arrow-up"></i></button>';
+}
+function wireScrollTopFab() {
+  const toggle = () => {
+    const btn = document.getElementById('scrolltop');
+    if (btn) btn.classList.toggle('show', window.scrollY > 200);
+  };
+  toggle();
+  window.onscroll = toggle;
+  const btn = document.getElementById('scrolltop');
+  if (btn) btn.onclick = () => window.scrollTo(0, 0);
 }
 
 // ── Host: create ────────────────────────────────────────────────────────────
@@ -786,15 +804,17 @@ function renderHostDashboardView() {
 }
 
 function hostShell(inner, active) {
-  root.innerHTML = `${inner}
+  root.innerHTML = `
     <div class="nav" style="justify-content:space-around">
       <button class="navi ${active === 'overview' ? 'active' : ''}" data-htab="overview"><i class="${active === 'overview' ? 'ph-fill' : 'ph'} ph-chart-bar"></i>Übersicht</button>
       <button class="navi ${active === 'gallery' ? 'active' : ''}" data-htab="gallery"><i class="${active === 'gallery' ? 'ph-fill' : 'ph'} ph-images"></i>Galerie</button>
       <button class="navi ${active === 'invite' ? 'active' : ''}" data-htab="invite"><i class="${active === 'invite' ? 'ph-fill' : 'ph'} ph-qr-code"></i>Einladen</button>
-    </div>`;
+    </div>${scrollTopFab()}
+    ${inner}`;
   root.querySelectorAll('[data-htab]').forEach((el) => {
     el.onclick = () => { state.hostTab = el.dataset.htab; renderHostDashboardView(); };
   });
+  wireScrollTopFab();
 }
 
 function hostOverview() {
