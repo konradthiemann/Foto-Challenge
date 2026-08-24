@@ -470,7 +470,11 @@ async function savePhoto() {
   }
   btn.disabled = false;
   btn.innerHTML = '<i class="ph-fill ph-check-circle"></i>In Galerie speichern';
-  toast(res.status === 413 ? 'Das Foto ist zu groß.' : 'Speichern fehlgeschlagen.');
+  if (res.data?.error === 'upload_window_closed') {
+    toast('Der Foto-Upload für diese Feier ist beendet.');
+  } else {
+    toast(res.status === 413 ? 'Das Foto ist zu groß.' : 'Speichern fehlgeschlagen.');
+  }
 }
 
 function screenSuccess() {
@@ -602,6 +606,10 @@ function renderHostCreate() {
       <input class="nm" id="hostpw" type="password" placeholder="Nur für dich als Gastgeber" maxlength="60" autocomplete="new-password">
       <p class="hint">Damit kommst du auf jedem Gerät wieder in dein Host-Menü, falls du die App schließt. Nicht aufs Plakat!</p>
 
+      <label class="lbl" style="margin-top:20px">Tag der Feier</label>
+      <input class="nm" id="eventDate" type="date">
+      <p class="hint">Fotos können nur an diesem Tag und dem darauffolgenden hochgeladen werden.</p>
+
       <label class="lbl" style="margin-top:20px">Anzahl Gäste</label>
       <div class="stepper">
         <button id="dec">−</button>
@@ -632,6 +640,9 @@ function renderHostCreate() {
     document.getElementById('price').textContent = priceLabel(guests);
     document.getElementById('pricenote').textContent = priceCentsFor(guests) === 0 ? freeNote : 'einmalig, für den ganzen Abend';
   };
+  // Nur Vorbelegung fürs Auge — validiert wird unabhängig davon serverseitig.
+  const today = new Date();
+  document.getElementById('eventDate').value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
   root.querySelector('.backbtn').onclick = () => navigate('/');
   document.getElementById('tologin').onclick = (e) => { e.preventDefault(); navigate('/host/login'); };
   document.getElementById('dec').onclick = () => { guests = Math.max(5, guests - 5); sync(); };
@@ -641,6 +652,7 @@ function renderHostCreate() {
     const email = document.getElementById('email').value.trim();
     const pw = document.getElementById('pw').value;
     const hostpw = document.getElementById('hostpw').value;
+    const eventDate = document.getElementById('eventDate').value;
     const err = document.getElementById('err');
     if (!name) { err.textContent = 'Bitte gib der Feier einen Namen.'; return; }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { err.textContent = 'Bitte gib eine gültige E-Mail-Adresse ein.'; return; }
@@ -649,7 +661,9 @@ function renderHostCreate() {
     if (!document.getElementById('agb').checked) { err.textContent = 'Bitte akzeptiere AGB und Datenschutz.'; return; }
     const btn = document.getElementById('go');
     btn.disabled = true;
-    const res = await api('POST', '/api/host/events', { name, guestLimit: guests, guestPassword: pw, hostPassword: hostpw, hostEmail: email });
+    const res = await api('POST', '/api/host/events', {
+      name, guestLimit: guests, guestPassword: pw, hostPassword: hostpw, hostEmail: email, eventDate,
+    });
     btn.disabled = false;
     if (!res.ok) { err.textContent = 'Konnte nicht erstellt werden.'; return; }
     localStorage.setItem(`hosttoken_${res.data.eventId}`, res.data.hostToken);

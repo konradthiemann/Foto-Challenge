@@ -16,6 +16,7 @@ import {
   hashPassword, verifyPassword, signToken, verifyToken, randomId,
 } from './auth.js';
 import { sendEventCreatedEmail } from './mailer.js';
+import { berlinDateString, uploadWindowForEvent } from './dateutil.js';
 import rateLimit from 'express-rate-limit';
 import { processAndStore } from './images.js';
 import {
@@ -289,6 +290,8 @@ app.post('/api/host/events', (req, res) => {
   const password = String(req.body.guestPassword || '');
   const hostPassword = String(req.body.hostPassword || '');
   const hostEmail = String(req.body.hostEmail || '').trim().toLowerCase().slice(0, 120);
+  const eventDateRaw = String(req.body.eventDate || '');
+  const eventDate = /^\d{4}-\d{2}-\d{2}$/.test(eventDateRaw) ? eventDateRaw : berlinDateString(Date.now());
 
   if (!name) return res.status(400).json({ error: 'name_required' });
   if (password.length < 3) return res.status(400).json({ error: 'password_too_short' });
@@ -303,9 +306,9 @@ app.post('/api/host/events', (req, res) => {
   const createdAt = Date.now();
   const expiresAt = createdAt + RETENTION_MS;
   db.prepare(`
-    INSERT INTO events (id, name, guest_limit, guest_password_hash, host_password_hash, host_email, host_token, join_code, created_at, expires_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(id, name, guestLimit, hashPassword(password), hashPassword(hostPassword), hostEmail, hostToken, joinCode, createdAt, expiresAt);
+    INSERT INTO events (id, name, guest_limit, guest_password_hash, host_password_hash, host_email, host_token, join_code, created_at, expires_at, event_date)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(id, name, guestLimit, hashPassword(password), hashPassword(hostPassword), hostEmail, hostToken, joinCode, createdAt, expiresAt, eventDate);
 
   res.cookie(hostCookieName(id), signToken({ eventId: id, host: true }), COOKIE_BASE);
 
@@ -631,6 +634,15 @@ app.post('/api/events/:id/photos', requireGuest, uploadLimiter, upload.single('p
   if (!req.file) { logEvent('photo_fail', req.params.id, { reason: 'no_file' }); return res.status(400).json({ error: 'no_file' }); }
   const taskId = req.guest.current_task_id;
   if (taskId == null) { logEvent('photo_fail', req.params.id, { reason: 'no_task' }); return res.status(400).json({ error: 'no_task' }); }
+
+  const ev = getEvent(req.params.id);
+  if (!ev) return res.status(404).json({ error: 'not_found' });
+  const { startMs, endMs } = uploadWindowForEvent(ev);
+  const now = Date.now();
+  if (now < startMs || now > endMs) {
+    logEvent('photo_fail', req.params.id, { reason: 'outside_window' });
+    return res.status(403).json({ error: 'upload_window_closed' });
+  }
 
   let filename;
   let processed = true;

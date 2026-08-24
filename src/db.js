@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import Database from 'better-sqlite3';
+import { berlinDateString } from './dateutil.js';
 
 const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), 'data');
 export const UPLOAD_DIR = path.join(DATA_DIR, 'uploads');
@@ -83,6 +84,10 @@ if (!eventCols.some((c) => c.name === 'host_password_hash')) {
 if (!eventCols.some((c) => c.name === 'host_email')) {
   db.exec('ALTER TABLE events ADD COLUMN host_email TEXT');
 }
+// Migration: chosen party day, restricts the photo upload window (day of + day after).
+if (!eventCols.some((c) => c.name === 'event_date')) {
+  db.exec('ALTER TABLE events ADD COLUMN event_date TEXT');
+}
 // Migration: consent timestamp on guests (DSGVO accountability).
 const guestCols = db.prepare('PRAGMA table_info(guests)').all();
 if (!guestCols.some((c) => c.name === 'consented_at')) {
@@ -90,5 +95,14 @@ if (!guestCols.some((c) => c.name === 'consented_at')) {
 }
 // NULLs are allowed to repeat in a SQLite unique index, so this is safe before backfill.
 db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_events_join_code ON events(join_code)');
+
+// Backfill event_date for events created before the field existed, from their
+// creation timestamp's Berlin calendar day.
+{
+  const setEventDate = db.prepare('UPDATE events SET event_date = ? WHERE id = ?');
+  for (const row of db.prepare('SELECT id, created_at FROM events WHERE event_date IS NULL').all()) {
+    setEventDate.run(berlinDateString(row.created_at), row.id);
+  }
+}
 
 export default db;
