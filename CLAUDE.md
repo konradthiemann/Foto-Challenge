@@ -96,6 +96,8 @@ Legal pages use § 19 UStG (no VAT). All prices are final prices (Endpreise).
   Same name (case-insensitive) resumes existing guest session.
 - **Admin**: `ADMIN_TOKEN` env var, cookie `fca`. Dashboard at `/admin.html`.
 - Gallery + images require guest OR host cookie.
+- **Photo deletion** (`DELETE /api/events/:id/photos/:photoId`): host may delete any
+  photo in their event; a guest may only delete their own (`photo.guest_id` match).
 
 ## Environment Variables (Railway prod)
 
@@ -209,13 +211,16 @@ must be configured per machine — they are never committed.
 
 ## Roadmap (planned, not built)
 
-- **Payment**: Stripe Checkout for events >5 guests → see `memory/stripe-plan.md`.
-  On successful checkout, log a `purchase` analytics event with `{tier, cents}`
-  (see `src/analytics.js`/`docs/analytics-api.md`) so the future Symfony
-  control-plane backend can evaluate which price tiers get bought.
+- **Payment**: Stripe Checkout for events above the free tier (>3 guests) → see
+  `memory/stripe-plan.md`. On successful checkout, log a `purchase` analytics
+  event with `{tier, cents}` (see `src/analytics.js`/`docs/analytics-api.md`)
+  so the future Symfony control-plane backend can evaluate which price tiers
+  get bought.
 - **Agent system**: MCP-based automation (Gmail, Stripe, Sheets, Social, Apple Notes) → see `docs/agent-system-plan.md`
 - **Image optimization**: sharp resize on upload (max 1920px) to save volume space
-- **Tests**: `node --test` unit tests (pricing/auth/tasks/images) — API-level integration tests next
+- **Tests**: `node --test` unit tests (pricing/auth/tasks/dateutil/images/imageAnnotate/
+  analytics) — no route-level/integration tests yet (`server.js` starts a real server on
+  import, isn't imported by any test); API-level integration tests still next.
 - **Marketing**: Landing page exists, social media accounts TBD
 - **App Store packaging** (exploratory — needs its own planning session before any code):
   Konrad sees real potential in a proper store listing (QR code → App Store/Play Store →
