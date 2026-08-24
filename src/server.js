@@ -285,7 +285,7 @@ app.get('/api/health', (req, res) => res.json({ ok: true }));
 
 app.post('/api/host/events', (req, res) => {
   const name = String(req.body.name || '').trim().slice(0, 80);
-  const guestLimit = Math.max(5, Math.min(200, parseInt(req.body.guestLimit, 10) || 5));
+  const guestLimit = Math.max(3, Math.min(200, parseInt(req.body.guestLimit, 10) || 3));
   const password = String(req.body.guestPassword || '');
   const hostPassword = String(req.body.hostPassword || '');
   const hostEmail = String(req.body.hostEmail || '').trim().toLowerCase().slice(0, 120);
