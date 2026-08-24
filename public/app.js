@@ -870,7 +870,7 @@ function showInstallFab() {
   const fab = document.createElement('button');
   fab.id = 'installfab';
   fab.className = 'installfab';
-  fab.innerHTML = '<i class="ph-fill ph-download-simple"></i><span>App installieren</span>';
+  fab.innerHTML = '<i class="ph-fill ph-download-simple"></i><span>Zum Homescreen</span>';
   fab.onclick = onInstallClick;
   document.body.appendChild(fab);
 }
@@ -896,7 +896,7 @@ function showIosInstallGuide() {
       <button class="iosclose" aria-label="Schließen"><i class="ph ph-x"></i></button>
       <div class="logo" style="margin:0 auto 14px">${BRAND_MARK}</div>
       <h3 class="title" style="font-size:20px;text-align:center">Zum Home-Bildschirm</h3>
-      <p class="lead" style="max-width:none;text-align:center;margin:8px auto 18px">So hast du Knips wie eine App direkt auf dem Handy.</p>
+      <p class="lead" style="max-width:none;text-align:center;margin:8px auto 18px">Optional: Ein Shortcut auf deinem Homescreen — ohne App Store, du kannst auch ohne mitspielen.</p>
       <ol class="iossteps">
         <li>Tippe unten auf <b>Teilen</b> <i class="ph ph-export"></i></li>
         <li>Wähle <b>Zum Home-Bildschirm</b> <i class="ph ph-plus-square"></i></li>
