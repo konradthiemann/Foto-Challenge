@@ -21,6 +21,7 @@ Erst `POST /api/admin/auth` mit `{ "token": "<ADMIN_TOKEN>" }` → setzt das
 | `task_rotate` | Aufgabe übersprungen | `{ cat }` (Kategorie der übersprungenen Aufgabe) |
 | `photo_upload` | Foto hochgeladen | `{ cat, processed }` (`processed=false` = Original-Fallback) |
 | `photo_fail` | Upload fehlgeschlagen | `{ reason }` |
+| `photo_delete` | Foto gelöscht | `{ by: "host"\|"guest" }` |
 | `gallery_view` | Galerie geöffnet | — |
 | `download` | Galerie-ZIP heruntergeladen | — |
 

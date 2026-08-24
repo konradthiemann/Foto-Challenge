@@ -1,7 +1,7 @@
 /* Knips Service Worker — App-Shell-Cache + Offline-Fallback. */
 'use strict';
 
-const VERSION = 'v16';
+const VERSION = 'v17';
 const CACHE = `fch-shell-${VERSION}`;
 
 // Statische App-Shell. Dynamische, auth-geschützte Inhalte (API, Fotos) werden

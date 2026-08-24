@@ -544,9 +544,16 @@ function wireTiles(container, photos, from) {
   });
 }
 
+function backToGallery() {
+  if (state.galleryReturn === 'host') { state.hostTab = 'gallery'; return renderHostDashboardView(); }
+  state.guestScreen = 'gallery';
+  renderGuestScreen();
+}
+
 function screenDetail() {
   const p = state.detailPhoto;
   const src = `/api/events/${state.eventId}/photos/${p.id}/image`;
+  const canDelete = state.galleryReturn === 'host' || state.me?.guest?.id === p.guestId;
   root.innerHTML = `
     <div class="screen" style="padding:20px 20px 26px">
       <button class="navi" id="back" style="flex-direction:row;gap:12px;color:var(--color-neutral-400);align-self:flex-start">
@@ -559,12 +566,17 @@ function screenDetail() {
         <div class="taskmeta"><i class="ph ph-user-circle"></i>${esc(p.guestName)} · ${timeOf(p.createdAt)}</div>
       </div>
       <a class="sec mt" href="${src}?dl=1" download><i class="ph ph-download-simple"></i>Foto herunterladen</a>
+      ${canDelete ? '<button class="sec danger mt" id="delphoto"><i class="ph ph-trash"></i>Foto löschen</button>' : ''}
     </div>`;
-  document.getElementById('back').onclick = () => {
-    if (state.galleryReturn === 'host') { state.hostTab = 'gallery'; return renderHostDashboardView(); }
-    state.guestScreen = 'gallery';
-    renderGuestScreen();
-  };
+  document.getElementById('back').onclick = backToGallery;
+  const del = document.getElementById('delphoto');
+  if (del) {
+    del.onclick = async () => {
+      if (!confirm('Foto wirklich löschen? Das kann nicht rückgängig gemacht werden.')) return;
+      const res = await api('DELETE', `/api/events/${state.eventId}/photos/${p.id}`);
+      if (res.ok) backToGallery();
+    };
+  }
 }
 
 // Bottom navigation shared by task/gallery
