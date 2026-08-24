@@ -839,7 +839,7 @@ function hostInvite() {
       <div class="linkline"><i class="ph ph-link-simple"></i>${esc(joinUrl.replace(/^https?:\/\//, ''))}</div>
       ${state.stats.joinCode ? `<div class="codeline">oder Code <b>${esc(state.stats.joinCode)}</b></div>` : ''}
       <div class="grow"></div>
-      ${token ? `<a class="pri" href="/host/${id}/print?t=${encodeURIComponent(token)}" target="_blank" rel="noopener"><i class="ph-fill ph-printer"></i>Plakat drucken</a>` : ''}
+      ${token ? `<a class="pri" href="/host/${id}/print?${printParams.toString()}" target="_blank" rel="noopener"><i class="ph-fill ph-printer"></i>Plakat drucken</a>` : ''}
       <button class="sec mt" id="copy"><i class="ph ph-copy"></i>Link kopieren</button>
       <div style="height:8px"></div>
     </div>`, 'invite');
