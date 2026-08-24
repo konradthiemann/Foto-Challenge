@@ -26,9 +26,11 @@ function dateOf(ts) {
   return new Date(ts).toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' });
 }
 
-// Freemium tiers — must mirror src/pricing.js. Free up to 5 guests, then stepwise.
+// Freemium tiers — must mirror src/pricing.js. Free up to 3 guests, then a
+// 0.99€ micro-tier up to 5, then stepwise.
 const PRICE_TIERS = [
-  { upTo: 5, cents: 0 },
+  { upTo: 3, cents: 0 },
+  { upTo: 5, cents: 99 },
   { upTo: 15, cents: 990 },
   { upTo: 30, cents: 1990 },
   { upTo: 60, cents: 3490 },
@@ -580,7 +582,7 @@ function wireNav() {
 function renderHostCreate() {
   state.eventId = null;
   let guests = 5;
-  const freeNote = 'Kostenlos bis 5 Gäste';
+  const freeNote = 'Kostenlos bis 3 Gäste';
   root.innerHTML = `
     <div class="screen">
       ${backButton('Startseite')}
