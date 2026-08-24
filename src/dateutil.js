@@ -54,3 +54,10 @@ export function uploadWindowForEvent(ev) {
   const endMs = nextMidnight + 24 * 3600 * 1000 - 1;
   return { startMs, endMs };
 }
+
+// true ab 08:00 Uhr Berlin-Zeit am Tag NACH dem Event ("Morgen danach"-Phase).
+export function isDayAfterPhase(ev) {
+  const dateStr = eventDateString(ev);
+  const nextMidnight = berlinMidnightUTC(nextDateString(dateStr));
+  return Date.now() >= nextMidnight + 8 * 3600 * 1000;
+}

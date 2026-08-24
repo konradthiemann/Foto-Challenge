@@ -235,6 +235,20 @@ export const TASKS = [
   { cat: 'Der Ort', text: 'Findet den Ort, an dem heute schon am meisten gelacht wurde, und fragt kurz warum.' },
   { cat: 'Der Ort', text: 'Macht ein Foto direkt vor der Kuchen- oder Dessert-Station.' },
   { cat: 'Der Ort', text: 'Findet den Ort, den ihr euch für den Rest des Abends als Stammplatz aussucht, und markiert ihn mit einem Foto.' },
+
+  // — Der Morgen danach — (ab 08:00 Uhr am Tag nach dem Event, siehe dateutil.js)
+  { cat: 'Der Morgen danach', phase: 'day-after', text: 'Fotografiert das Katerfrühstück-Buffet, so wie es gerade aussieht.' },
+  { cat: 'Der Morgen danach', phase: 'day-after', text: 'Findet das lustigste Überbleibsel der Nacht und verewigt es.' },
+  { cat: 'Der Morgen danach', phase: 'day-after', text: 'Macht ein Aufräum-Team-Foto mit Putzlappen oder Mülltüte in der Hand.' },
+  { cat: 'Der Morgen danach', phase: 'day-after', text: 'Sucht das müdeste Gesicht am Frühstückstisch.' },
+  { cat: 'Der Morgen danach', phase: 'day-after', text: 'Ein Abschieds-Umarmungsfoto mit jemandem auf dem Heimweg.' },
+  { cat: 'Der Morgen danach', phase: 'day-after', text: 'Zeigt die Kaffeetasse, die euch heute Morgen gerettet hat.' },
+  { cat: 'Der Morgen danach', phase: 'day-after', text: 'Findet die Person mit der besten Restlaune trotz wenig Schlaf.' },
+  { cat: 'Der Morgen danach', phase: 'day-after', text: 'Macht ein Foto vom traurigsten Rest-Buffet.' },
+  { cat: 'Der Morgen danach', phase: 'day-after', text: 'Fotografiert zwei Leute, die sich gerade an gestern Abend erinnern — Gesichtsausdruck einfangen.' },
+  { cat: 'Der Morgen danach', phase: 'day-after', text: 'Ein letztes Gruppenfoto mit allen, die noch da sind.' },
+  { cat: 'Der Morgen danach', phase: 'day-after', text: 'Zeigt euren Blick nach draußen — wie sieht der Morgen danach aus?' },
+  { cat: 'Der Morgen danach', phase: 'day-after', text: 'Findet das kaputteste (aber ungefährliche) Deko-Teil und posiert damit.' },
 ];
 
 export function taskById(id) {

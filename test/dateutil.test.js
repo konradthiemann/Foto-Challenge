@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { berlinDateString, berlinMidnightUTC, uploadWindowForEvent } from '../src/dateutil.js';
+import {
+  berlinDateString, berlinMidnightUTC, uploadWindowForEvent, isDayAfterPhase,
+} from '../src/dateutil.js';
 
 test('berlinDateString: liefert den Berlin-Kalendertag als YYYY-MM-DD', () => {
   // 2026-01-15T23:30Z ist in Berlin (CET, UTC+1) schon der 16.
@@ -42,4 +44,40 @@ test('uploadWindowForEvent: ein Tag nach dem Fensterende liegt außerhalb', () =
   const { endMs } = uploadWindowForEvent(ev);
   const now = endMs + 1;
   assert.ok(now > endMs);
+});
+
+test('isDayAfterPhase: false kurz vor 08:00 Uhr am Folgetag', () => {
+  const ev = { event_date: '2026-07-15', created_at: Date.parse('2026-07-15T10:00:00Z') };
+  const before = berlinMidnightUTC('2026-07-16') + 8 * 3600 * 1000 - 1;
+  const realNow = Date.now;
+  Date.now = () => before;
+  try {
+    assert.equal(isDayAfterPhase(ev), false);
+  } finally {
+    Date.now = realNow;
+  }
+});
+
+test('isDayAfterPhase: true genau um 08:00 Uhr am Folgetag und danach', () => {
+  const ev = { event_date: '2026-07-15', created_at: Date.parse('2026-07-15T10:00:00Z') };
+  const atEight = berlinMidnightUTC('2026-07-16') + 8 * 3600 * 1000;
+  const realNow = Date.now;
+  Date.now = () => atEight;
+  try {
+    assert.equal(isDayAfterPhase(ev), true);
+  } finally {
+    Date.now = realNow;
+  }
+});
+
+test('isDayAfterPhase: Fallback auf created_at, wenn event_date fehlt', () => {
+  const ev = { event_date: null, created_at: Date.parse('2026-07-15T10:00:00Z') };
+  const afterEight = berlinMidnightUTC('2026-07-16') + 8 * 3600 * 1000 + 1000;
+  const realNow = Date.now;
+  Date.now = () => afterEight;
+  try {
+    assert.equal(isDayAfterPhase(ev), true);
+  } finally {
+    Date.now = realNow;
+  }
 });

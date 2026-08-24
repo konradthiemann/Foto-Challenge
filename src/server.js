@@ -16,7 +16,9 @@ import {
   hashPassword, verifyPassword, signToken, verifyToken, randomId,
 } from './auth.js';
 import { sendEventCreatedEmail } from './mailer.js';
-import { berlinDateString, uploadWindowForEvent } from './dateutil.js';
+import {
+  berlinDateString, uploadWindowForEvent, isDayAfterPhase,
+} from './dateutil.js';
 import rateLimit from 'express-rate-limit';
 import { processAndStore } from './images.js';
 import {
@@ -183,14 +185,22 @@ function photoCount(eventId) {
 }
 
 // Assign a task the guest has not completed yet (avoid the current one when possible).
-function assignNextTask(guestId, avoidId = null) {
+// Tasks are additionally scoped to the event's current phase: party tasks
+// until the "day after" phase starts (08:00 Berlin time the day after the
+// event), then exclusively the day-after pool — no phase-crossing fallback,
+// otherwise party tasks would reappear after 08:00.
+function assignNextTask(guestId, eventId, avoidId = null) {
+  const ev = getEvent(eventId);
+  const wantDayAfter = isDayAfterPhase(ev);
+  const phaseOk = (i) => (TASKS[i].phase === 'day-after') === wantDayAfter;
+
   const done = new Set(
     db.prepare('SELECT task_id FROM guest_task_done WHERE guest_id = ?')
       .all(guestId).map((r) => r.task_id),
   );
-  let pool = TASKS.map((_, i) => i).filter((i) => !done.has(i) && i !== avoidId);
-  if (pool.length === 0) pool = TASKS.map((_, i) => i).filter((i) => i !== avoidId);
-  if (pool.length === 0) pool = TASKS.map((_, i) => i);
+  let pool = TASKS.map((_, i) => i).filter((i) => !done.has(i) && i !== avoidId && phaseOk(i));
+  if (pool.length === 0) pool = TASKS.map((_, i) => i).filter((i) => i !== avoidId && phaseOk(i));
+  if (pool.length === 0) pool = TASKS.map((_, i) => i).filter((i) => phaseOk(i));
   const taskId = pool[Math.floor(Math.random() * pool.length)];
   db.prepare('UPDATE guests SET current_task_id = ? WHERE id = ?').run(taskId, guestId);
   return taskId;
@@ -578,7 +588,7 @@ app.post('/api/events/:id/join', joinLimiter, (req, res) => {
   if (existing) {
     db.prepare('UPDATE guests SET consented_at = ? WHERE id = ?').run(now, existing.id);
     let taskId = existing.current_task_id;
-    if (taskId == null) taskId = assignNextTask(existing.id);
+    if (taskId == null) taskId = assignNextTask(existing.id, ev.id);
     const doneCount = db.prepare('SELECT COUNT(*) c FROM guest_task_done WHERE guest_id = ?').get(existing.id).c;
     logEvent('join_success', ev.id, { resumed: true });
     res.cookie(guestCookieName(ev.id), signToken({ eventId: ev.id, guestId: existing.id }), COOKIE_BASE);
@@ -598,7 +608,7 @@ app.post('/api/events/:id/join', joinLimiter, (req, res) => {
   const guestId = randomId(10);
   db.prepare('INSERT INTO guests (id, event_id, name, consented_at, created_at) VALUES (?, ?, ?, ?, ?)')
     .run(guestId, ev.id, name, now, now);
-  const taskId = assignNextTask(guestId);
+  const taskId = assignNextTask(guestId, ev.id);
 
   logEvent('join_success', ev.id, { resumed: false });
   res.cookie(guestCookieName(ev.id), signToken({ eventId: ev.id, guestId }), COOKIE_BASE);
@@ -614,7 +624,7 @@ app.get('/api/events/:id/me', requireGuest, (req, res) => {
   const g = req.guest;
   const doneCount = db.prepare('SELECT COUNT(*) c FROM guest_task_done WHERE guest_id = ?').get(g.id).c;
   let taskId = g.current_task_id;
-  if (taskId == null) taskId = assignNextTask(g.id);
+  if (taskId == null) taskId = assignNextTask(g.id, req.params.id);
   res.json({
     guest: { id: g.id, name: g.name },
     event: { id: req.params.id, name: getEvent(req.params.id)?.name },
@@ -625,7 +635,7 @@ app.get('/api/events/:id/me', requireGuest, (req, res) => {
 
 app.post('/api/events/:id/task/rotate', requireGuest, (req, res) => {
   const skipped = req.guest.current_task_id;
-  const taskId = assignNextTask(req.guest.id, skipped);
+  const taskId = assignNextTask(req.guest.id, req.params.id, skipped);
   logEvent('task_rotate', req.params.id, { cat: taskById(skipped)?.cat || null });
   res.json({ task: taskById(taskId) });
 });
