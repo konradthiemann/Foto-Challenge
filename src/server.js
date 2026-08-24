@@ -681,7 +681,7 @@ app.post('/api/events/:id/photos', requireGuest, uploadLimiter, upload.single('p
 app.get('/api/events/:id/gallery', requireGuestOrHost, (req, res) => {
   logEvent('gallery_view', req.params.id);
   const rows = db.prepare(`
-    SELECT p.id, p.task_id, p.created_at, g.name AS guest_name
+    SELECT p.id, p.task_id, p.guest_id, p.created_at, g.name AS guest_name
     FROM photos p JOIN guests g ON g.id = p.guest_id
     WHERE p.event_id = ? ORDER BY p.created_at DESC
   `).all(req.params.id);
@@ -691,7 +691,7 @@ app.get('/api/events/:id/gallery', requireGuestOrHost, (req, res) => {
       const t = taskById(p.task_id);
       return {
         id: p.id, cat: t?.cat || '', text: t?.text || '',
-        guestName: p.guest_name, createdAt: p.created_at,
+        guestId: p.guest_id, guestName: p.guest_name, createdAt: p.created_at,
       };
     }),
   });
@@ -713,6 +713,25 @@ app.get('/api/events/:id/photos/:photoId/image', requireGuestOrHost, (req, res) 
     res.set('Content-Disposition', 'inline');
   }
   res.sendFile(file);
+});
+
+// Delete a single photo. Guests may only delete their own; the host may
+// delete any photo in their event.
+app.delete('/api/events/:id/photos/:photoId', requireGuestOrHost, async (req, res) => {
+  const photo = db.prepare('SELECT * FROM photos WHERE id = ? AND event_id = ?')
+    .get(req.params.photoId, req.params.id);
+  if (!photo) return res.status(404).json({ error: 'not_found' });
+  if (!req.isHost && (!req.guest || req.guest.id !== photo.guest_id)) {
+    return res.status(403).json({ error: 'forbidden' });
+  }
+  try {
+    await fs.promises.unlink(path.join(UPLOAD_DIR, photo.filename));
+  } catch {
+    // File already gone or unreadable — the DB row is the source of truth, delete it regardless.
+  }
+  db.prepare('DELETE FROM photos WHERE id = ?').run(photo.id);
+  logEvent('photo_delete', req.params.id, { by: req.isHost ? 'host' : 'guest' });
+  res.json({ ok: true });
 });
 
 // Download the whole gallery as a ZIP (guests and host allowed). Contains
