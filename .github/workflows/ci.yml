@@ -86,4 +86,4 @@ jobs:
             exit 0
           fi
           npm i -g @railway/cli
-          railway up --ci
+          railway up --ci --service foto-challenge --environment production
