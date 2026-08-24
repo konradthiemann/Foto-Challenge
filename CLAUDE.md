@@ -43,7 +43,7 @@ railway.json      — Nixpacks builder config
 `public/sw.js` uses cache-first for the app shell. Installed PWAs will NOT
 pick up changes to app.js/styles.css/index.html unless the VERSION string
 in sw.js is incremented. **Always bump VERSION when touching any public/ file.**
-Current version: v12.
+Current version: v14.
 
 ### Port 3000 is occupied locally
 Use port 3210 for local dev (`PORT=3210 npm run dev`). Production uses
@@ -189,7 +189,10 @@ must be configured per machine — they are never committed.
 
 ## Roadmap (planned, not built)
 
-- **Payment**: Stripe Checkout for events >5 guests → see `memory/stripe-plan.md`
+- **Payment**: Stripe Checkout for events >5 guests → see `memory/stripe-plan.md`.
+  On successful checkout, log a `purchase` analytics event with `{tier, cents}`
+  (see `src/analytics.js`/`docs/analytics-api.md`) so the future Symfony
+  control-plane backend can evaluate which price tiers get bought.
 - **Agent system**: MCP-based automation (Gmail, Stripe, Sheets, Social, Apple Notes) → see `docs/agent-system-plan.md`
 - **Image optimization**: sharp resize on upload (max 1920px) to save volume space
 - **Tests**: `node --test` unit tests (pricing/auth/tasks/images) — API-level integration tests next
