@@ -26,9 +26,11 @@ function dateOf(ts) {
   return new Date(ts).toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' });
 }
 
-// Freemium tiers — must mirror src/pricing.js. Free up to 5 guests, then stepwise.
+// Freemium tiers — must mirror src/pricing.js. Free up to 3 guests, then a
+// 0.99€ micro-tier up to 5, then stepwise.
 const PRICE_TIERS = [
-  { upTo: 5, cents: 0 },
+  { upTo: 3, cents: 0 },
+  { upTo: 5, cents: 99 },
   { upTo: 15, cents: 990 },
   { upTo: 30, cents: 1990 },
   { upTo: 60, cents: 3490 },
@@ -578,10 +580,17 @@ function wireNav() {
 }
 
 // ── Host: create ────────────────────────────────────────────────────────────
+// Guest-count stepper for renderHostCreate: 3 is the free tier and must be
+// reachable, everything from 5 up counts in steps of 5.
+const GUEST_MIN = 3;
+const GUEST_STEP = 5;
+function decGuests(g) { return g <= GUEST_STEP ? GUEST_MIN : g - GUEST_STEP; }
+function incGuests(g) { return g < GUEST_STEP ? GUEST_STEP : Math.min(200, g + GUEST_STEP); }
+
 function renderHostCreate() {
   state.eventId = null;
-  let guests = 5;
-  const freeNote = 'Kostenlos bis 5 Gäste';
+  let guests = GUEST_MIN;
+  const freeNote = 'Kostenlos bis 3 Gäste';
   root.innerHTML = `
     <div class="screen">
       ${backButton('Startseite')}
@@ -635,8 +644,8 @@ function renderHostCreate() {
   };
   root.querySelector('.backbtn').onclick = () => navigate('/');
   document.getElementById('tologin').onclick = (e) => { e.preventDefault(); navigate('/host/login'); };
-  document.getElementById('dec').onclick = () => { guests = Math.max(5, guests - 5); sync(); };
-  document.getElementById('inc').onclick = () => { guests = Math.min(200, guests + 5); sync(); };
+  document.getElementById('dec').onclick = () => { guests = decGuests(guests); sync(); };
+  document.getElementById('inc').onclick = () => { guests = incGuests(guests); sync(); };
   document.getElementById('go').onclick = async () => {
     const name = document.getElementById('name').value.trim();
     const email = document.getElementById('email').value.trim();

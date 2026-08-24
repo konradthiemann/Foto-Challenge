@@ -18,6 +18,7 @@ import {
 import { sendEventCreatedEmail } from './mailer.js';
 import rateLimit from 'express-rate-limit';
 import { processAndStore } from './images.js';
+import { annotateWithTask } from './imageAnnotate.js';
 import {
   logEvent, deviceClass, aggregate, rawEvents,
 } from './analytics.js';
@@ -285,7 +286,7 @@ app.get('/api/health', (req, res) => res.json({ ok: true }));
 
 app.post('/api/host/events', (req, res) => {
   const name = String(req.body.name || '').trim().slice(0, 80);
-  const guestLimit = Math.max(5, Math.min(200, parseInt(req.body.guestLimit, 10) || 5));
+  const guestLimit = Math.max(3, Math.min(200, parseInt(req.body.guestLimit, 10) || 3));
   const password = String(req.body.guestPassword || '');
   const hostPassword = String(req.body.hostPassword || '');
   const hostEmail = String(req.body.hostEmail || '').trim().toLowerCase().slice(0, 120);
@@ -692,8 +693,10 @@ app.get('/api/events/:id/photos/:photoId/image', requireGuestOrHost, (req, res) 
   res.sendFile(file);
 });
 
-// Download the whole gallery as a ZIP (guests and host allowed).
-app.get('/api/events/:id/download.zip', requireGuestOrHost, (req, res) => {
+// Download the whole gallery as a ZIP (guests and host allowed). Contains
+// two copies of every photo: `blanko/` (unverändert) und `mit-aufgabe/`
+// (Aufgaben-Text ins Bild eingebrannt, siehe imageAnnotate.js).
+app.get('/api/events/:id/download.zip', requireGuestOrHost, async (req, res) => {
   const ev = getEvent(req.params.id);
   if (!ev) return res.status(404).end();
   logEvent('download', ev.id);
@@ -712,13 +715,23 @@ app.get('/api/events/:id/download.zip', requireGuestOrHost, (req, res) => {
   zip.on('error', (err) => { console.error(err); res.destroy(); });
   zip.pipe(res);
   let n = 0;
+  // Sequentiell (kein Promise.all), um CPU-/Memory-Spitzen beim Annotieren
+  // auf der kleinen Railway-Instanz zu vermeiden.
   for (const p of photos) {
     const file = path.join(UPLOAD_DIR, p.filename);
     if (!fs.existsSync(file)) continue;
     n += 1;
     const cat = (taskById(p.task_id)?.cat || 'foto').replace(/[^\p{L}\p{N}]+/gu, '-').toLowerCase();
     const guest = String(p.guest_name || '').replace(/[^\p{L}\p{N}]+/gu, '-').toLowerCase();
-    zip.file(file, { name: `${String(n).padStart(3, '0')}_${cat}_${guest}${path.extname(p.filename)}` });
+    const name = `${String(n).padStart(3, '0')}_${cat}_${guest}${path.extname(p.filename)}`;
+    zip.file(file, { name: `blanko/${name}` });
+    try {
+      const taskText = taskById(p.task_id)?.text || '';
+      const annotated = await annotateWithTask(file, taskText);
+      zip.append(annotated, { name: `mit-aufgabe/${name}` });
+    } catch (err) {
+      console.error(`annotateWithTask fehlgeschlagen für ${p.filename}:`, err);
+    }
   }
   zip.finalize();
 });

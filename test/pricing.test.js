@@ -2,9 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { priceCents, tierForGuests, formatEuro } from '../src/pricing.js';
 
-test('priceCents: kostenlos bis 5 Gäste', () => {
+test('priceCents: kostenlos bis 3 Gäste', () => {
   assert.equal(priceCents(1), 0);
-  assert.equal(priceCents(5), 0);
+  assert.equal(priceCents(3), 0);
+});
+
+test('priceCents: Mini-Tier für 4-5 Gäste', () => {
+  assert.equal(priceCents(4), 99);
+  assert.equal(priceCents(5), 99);
 });
 
 test('priceCents: stufenweise Tiers', () => {
@@ -27,6 +32,7 @@ test('tierForGuests liefert das kleinste abdeckende Tier', () => {
 
 test('formatEuro', () => {
   assert.equal(formatEuro(0), 'Kostenlos');
+  assert.equal(formatEuro(99), '0,99 €');
   assert.equal(formatEuro(990), '9,90 €');
   assert.equal(formatEuro(1990), '19,90 €');
 });
