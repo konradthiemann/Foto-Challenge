@@ -18,10 +18,12 @@ get a photo task, take a photo, it lands in a shared password-protected gallery.
 src/server.js     — Express app, all API routes + SPA fallback + QR poster
 src/db.js         — better-sqlite3, migrations, DATA_DIR=/data
 src/auth.js       — scrypt hashing, HMAC-signed cookie tokens
-src/tasks.js      — 207 photo challenges (TASKS array)
+src/tasks.js      — 219 photo challenges (TASKS array): 207 party + 12 day-after (phase: 'day-after')
 src/mailer.js     — Transactional email (Resend > SMTP > console)
 src/pricing.js    — Price tiers, tierForGuests, priceCents
 src/images.js     — Upload-Bildverarbeitung (Resize + EXIF/GPS-Strip, fail-safe)
+src/imageAnnotate.js — Task-Text-Overlay fürs ZIP-Export (siehe "Do NOT remove nixpacks.toml" unten)
+src/dateutil.js   — Event-Tag-Zeitfenster + Folgetag-Phase (Europe/Berlin)
 src/analytics.js  — anonymes Nutzungs-Event-Logging + Aggregation (docs/analytics-api.md)
 
 public/index.html — SPA shell
@@ -34,7 +36,10 @@ public/landing.html — Marketing page
 public/admin.html   — Admin dashboard (Chart.js, ADMIN_TOKEN protected)
 public/impressum.html, datenschutz.html, agb.html — Legal pages
 
+assets/fonts/     — DejaVuSans-Bold.ttf + NOTICE.md, bundled font for imageAnnotate.js
+
 railway.json      — Nixpacks builder config
+nixpacks.toml     — extra Nix packages (fontconfig) on top of the auto-detected Node setup
 ```
 
 ## Critical Rules
@@ -43,7 +48,7 @@ railway.json      — Nixpacks builder config
 `public/sw.js` uses cache-first for the app shell. Installed PWAs will NOT
 pick up changes to app.js/styles.css/index.html unless the VERSION string
 in sw.js is incremented. **Always bump VERSION when touching any public/ file.**
-Current version: v17.
+Current version: v18.
 
 ### Port 3000 is occupied locally
 Use port 3210 for local dev (`PORT=3210 npm run dev`). Production uses
@@ -52,6 +57,21 @@ Railway's auto-assigned PORT.
 ### Do NOT loosen the Node engine pin
 `engines.node` is `"22.x"`. Railpack defaults to Node 24 which has no
 better-sqlite3 prebuilt → build fails with missing Python. Keep it at 22.
+
+### Do NOT remove `nixpacks.toml` or `assets/fonts/`
+The Railway/Nixpacks build image has no system fonts. `src/imageAnnotate.js`
+(task-text overlay for the gallery ZIP export, see `src/server.js`'s
+`download.zip` route) composites SVG `<text>` via sharp/librsvg, which
+silently renders empty "tofu" boxes instead of glyphs without a real font —
+this shipped broken once already. `nixpacks.toml` adds the `fontconfig` Nix
+package (and MUST keep `nodejs_22`/`npm-9_x` alongside it — a `nixpacks.toml`
+phase REPLACES the auto-detected one instead of merging, dropping Node
+entirely if omitted); `assets/fonts/DejaVuSans-Bold.ttf` is the actual font
+file, loaded via a `fonts.conf` generated at process start in
+`imageAnnotate.js` (`FONTCONFIG_FILE` env var, absolute paths only — a
+relative `<dir>` is ambiguous depending on the fontconfig version). This
+mirrors production identically in local dev, so this class of bug can't
+silently reappear from "worked on my machine."
 
 ### Deploy: auto-deploy on green CI
 Merges/pushes to `main` auto-deploy to Railway **via the GitHub Actions `deploy`
@@ -139,7 +159,7 @@ Railway project: `428d794f`, service: `15d4d882`, volume at `/data`.
 | **Event** | A party/gathering created by a host. Has a slug, join code, passwords, expiry. DB: `events` table. |
 | **Host** | Person who creates an event. Has hostToken + host password. One host per event. |
 | **Guest** | Person who joins an event by name + guest password. DB: `guests` table. |
-| **Task** | A photo challenge from `src/tasks.js` (207 total). Assigned randomly, can be rotated. |
+| **Task** | A photo challenge from `src/tasks.js` (219 total: 207 party + 12 day-after). Assigned randomly, can be rotated. |
 | **Gallery** | The shared, password-protected photo collection of an event. |
 | **Join Code** | 5-char code guests can type instead of scanning the QR / using the full URL. |
 | **Retention** | Events + all data auto-delete after RETENTION_DAYS (default 30). |
