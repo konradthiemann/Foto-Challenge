@@ -295,7 +295,8 @@ function screenJoin() {
   const isHost = !!localStorage.getItem(`hosttoken_${state.eventId}`);
   const pwField = info.requiresPassword ? `
     <label class="lbl" style="margin-top:18px">Party-Passwort</label>
-    <input class="nm" id="pw" type="password" placeholder="Passwort vom Gastgeber" autocomplete="off">` : '';
+    <input class="nm" id="pw" type="password" placeholder="Passwort vom Gastgeber" autocomplete="off">
+    <p class="hint">Nicht der 5-stellige Beitritts-Code — ein eigenes Passwort, das dir der Gastgeber gibt.</p>` : '';
   root.innerHTML = `
     <div class="screen">
       ${backButton(isHost ? 'Host-Menü' : 'Startseite')}
@@ -662,6 +663,9 @@ function renderHostCreate() {
     btn.disabled = false;
     if (!res.ok) { err.textContent = 'Konnte nicht erstellt werden.'; return; }
     localStorage.setItem(`hosttoken_${res.data.eventId}`, res.data.hostToken);
+    // Kept locally so the print poster (host-only) can show the plaintext
+    // password later — the server only ever stores a hash of it.
+    localStorage.setItem(`guestpw_${res.data.eventId}`, pw);
     navigate(`/host/${res.data.eventId}`);
   };
 }
@@ -831,6 +835,9 @@ async function hostGallery() {
 function hostInvite() {
   const id = state.eventId;
   const token = localStorage.getItem(`hosttoken_${id}`);
+  const guestPw = localStorage.getItem(`guestpw_${id}`);
+  const printParams = new URLSearchParams({ t: token || '' });
+  if (guestPw) printParams.set('pw', guestPw);
   const joinUrl = `${location.origin}/${id}`;
   hostShell(`
     <div class="screen center" style="background:radial-gradient(120% 60% at 50% 10%,#22253c,#161826)">
@@ -841,7 +848,7 @@ function hostInvite() {
       <div class="linkline"><i class="ph ph-link-simple"></i>${esc(joinUrl.replace(/^https?:\/\//, ''))}</div>
       ${state.stats.joinCode ? `<div class="codeline">oder Code <b>${esc(state.stats.joinCode)}</b></div>` : ''}
       <div class="grow"></div>
-      ${token ? `<a class="pri" href="/host/${id}/print?t=${encodeURIComponent(token)}" target="_blank" rel="noopener"><i class="ph-fill ph-printer"></i>Plakat drucken</a>` : ''}
+      ${token ? `<a class="pri" href="/host/${id}/print?${printParams.toString()}" target="_blank" rel="noopener"><i class="ph-fill ph-printer"></i>Plakat drucken</a>` : ''}
       <button class="sec mt" id="copy"><i class="ph ph-copy"></i>Link kopieren</button>
       <div style="height:8px"></div>
     </div>`, 'invite');
@@ -872,7 +879,7 @@ function showInstallFab() {
   const fab = document.createElement('button');
   fab.id = 'installfab';
   fab.className = 'installfab';
-  fab.innerHTML = '<i class="ph-fill ph-download-simple"></i><span>App installieren</span>';
+  fab.innerHTML = '<i class="ph-fill ph-download-simple"></i><span>Zum Homescreen</span>';
   fab.onclick = onInstallClick;
   document.body.appendChild(fab);
 }
@@ -898,7 +905,7 @@ function showIosInstallGuide() {
       <button class="iosclose" aria-label="Schließen"><i class="ph ph-x"></i></button>
       <div class="logo" style="margin:0 auto 14px">${BRAND_MARK}</div>
       <h3 class="title" style="font-size:20px;text-align:center">Zum Home-Bildschirm</h3>
-      <p class="lead" style="max-width:none;text-align:center;margin:8px auto 18px">So hast du Knips wie eine App direkt auf dem Handy.</p>
+      <p class="lead" style="max-width:none;text-align:center;margin:8px auto 18px">Optional: Ein Shortcut auf deinem Homescreen — ohne App Store, du kannst auch ohne mitspielen.</p>
       <ol class="iossteps">
         <li>Tippe unten auf <b>Teilen</b> <i class="ph ph-export"></i></li>
         <li>Wähle <b>Zum Home-Bildschirm</b> <i class="ph ph-plus-square"></i></li>
