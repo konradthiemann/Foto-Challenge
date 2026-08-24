@@ -26,9 +26,11 @@ function dateOf(ts) {
   return new Date(ts).toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' });
 }
 
-// Freemium tiers — must mirror src/pricing.js. Free up to 5 guests, then stepwise.
+// Freemium tiers — must mirror src/pricing.js. Free up to 3 guests, then a
+// 0.99€ micro-tier up to 5, then stepwise.
 const PRICE_TIERS = [
-  { upTo: 5, cents: 0 },
+  { upTo: 3, cents: 0 },
+  { upTo: 5, cents: 99 },
   { upTo: 15, cents: 990 },
   { upTo: 30, cents: 1990 },
   { upTo: 60, cents: 3490 },
@@ -293,7 +295,8 @@ function screenJoin() {
   const isHost = !!localStorage.getItem(`hosttoken_${state.eventId}`);
   const pwField = info.requiresPassword ? `
     <label class="lbl" style="margin-top:18px">Party-Passwort</label>
-    <input class="nm" id="pw" type="password" placeholder="Passwort vom Gastgeber" autocomplete="off">` : '';
+    <input class="nm" id="pw" type="password" placeholder="Passwort vom Gastgeber" autocomplete="off">
+    <p class="hint">Nicht der 5-stellige Beitritts-Code — ein eigenes Passwort, das dir der Gastgeber gibt.</p>` : '';
   root.innerHTML = `
     <div class="screen">
       ${backButton(isHost ? 'Host-Menü' : 'Startseite')}
@@ -581,10 +584,17 @@ function wireNav() {
 }
 
 // ── Host: create ────────────────────────────────────────────────────────────
+// Guest-count stepper for renderHostCreate: 3 is the free tier and must be
+// reachable, everything from 5 up counts in steps of 5.
+const GUEST_MIN = 3;
+const GUEST_STEP = 5;
+function decGuests(g) { return g <= GUEST_STEP ? GUEST_MIN : g - GUEST_STEP; }
+function incGuests(g) { return g < GUEST_STEP ? GUEST_STEP : Math.min(200, g + GUEST_STEP); }
+
 function renderHostCreate() {
   state.eventId = null;
-  let guests = 5;
-  const freeNote = 'Kostenlos bis 5 Gäste';
+  let guests = GUEST_MIN;
+  const freeNote = 'Kostenlos bis 3 Gäste';
   root.innerHTML = `
     <div class="screen">
       ${backButton('Startseite')}
@@ -645,8 +655,8 @@ function renderHostCreate() {
   document.getElementById('eventDate').value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
   root.querySelector('.backbtn').onclick = () => navigate('/');
   document.getElementById('tologin').onclick = (e) => { e.preventDefault(); navigate('/host/login'); };
-  document.getElementById('dec').onclick = () => { guests = Math.max(5, guests - 5); sync(); };
-  document.getElementById('inc').onclick = () => { guests = Math.min(200, guests + 5); sync(); };
+  document.getElementById('dec').onclick = () => { guests = decGuests(guests); sync(); };
+  document.getElementById('inc').onclick = () => { guests = incGuests(guests); sync(); };
   document.getElementById('go').onclick = async () => {
     const name = document.getElementById('name').value.trim();
     const email = document.getElementById('email').value.trim();
@@ -667,6 +677,9 @@ function renderHostCreate() {
     btn.disabled = false;
     if (!res.ok) { err.textContent = 'Konnte nicht erstellt werden.'; return; }
     localStorage.setItem(`hosttoken_${res.data.eventId}`, res.data.hostToken);
+    // Kept locally so the print poster (host-only) can show the plaintext
+    // password later — the server only ever stores a hash of it.
+    localStorage.setItem(`guestpw_${res.data.eventId}`, pw);
     navigate(`/host/${res.data.eventId}`);
   };
 }
@@ -836,6 +849,9 @@ async function hostGallery() {
 function hostInvite() {
   const id = state.eventId;
   const token = localStorage.getItem(`hosttoken_${id}`);
+  const guestPw = localStorage.getItem(`guestpw_${id}`);
+  const printParams = new URLSearchParams({ t: token || '' });
+  if (guestPw) printParams.set('pw', guestPw);
   const joinUrl = `${location.origin}/${id}`;
   hostShell(`
     <div class="screen center" style="background:radial-gradient(120% 60% at 50% 10%,#22253c,#161826)">
@@ -846,7 +862,7 @@ function hostInvite() {
       <div class="linkline"><i class="ph ph-link-simple"></i>${esc(joinUrl.replace(/^https?:\/\//, ''))}</div>
       ${state.stats.joinCode ? `<div class="codeline">oder Code <b>${esc(state.stats.joinCode)}</b></div>` : ''}
       <div class="grow"></div>
-      ${token ? `<a class="pri" href="/host/${id}/print?t=${encodeURIComponent(token)}" target="_blank" rel="noopener"><i class="ph-fill ph-printer"></i>Plakat drucken</a>` : ''}
+      ${token ? `<a class="pri" href="/host/${id}/print?${printParams.toString()}" target="_blank" rel="noopener"><i class="ph-fill ph-printer"></i>Plakat drucken</a>` : ''}
       <button class="sec mt" id="copy"><i class="ph ph-copy"></i>Link kopieren</button>
       <div style="height:8px"></div>
     </div>`, 'invite');
@@ -877,7 +893,7 @@ function showInstallFab() {
   const fab = document.createElement('button');
   fab.id = 'installfab';
   fab.className = 'installfab';
-  fab.innerHTML = '<i class="ph-fill ph-download-simple"></i><span>App installieren</span>';
+  fab.innerHTML = '<i class="ph-fill ph-download-simple"></i><span>Zum Homescreen</span>';
   fab.onclick = onInstallClick;
   document.body.appendChild(fab);
 }
@@ -903,7 +919,7 @@ function showIosInstallGuide() {
       <button class="iosclose" aria-label="Schließen"><i class="ph ph-x"></i></button>
       <div class="logo" style="margin:0 auto 14px">${BRAND_MARK}</div>
       <h3 class="title" style="font-size:20px;text-align:center">Zum Home-Bildschirm</h3>
-      <p class="lead" style="max-width:none;text-align:center;margin:8px auto 18px">So hast du Knips wie eine App direkt auf dem Handy.</p>
+      <p class="lead" style="max-width:none;text-align:center;margin:8px auto 18px">Optional: Ein Shortcut auf deinem Homescreen — ohne App Store, du kannst auch ohne mitspielen.</p>
       <ol class="iossteps">
         <li>Tippe unten auf <b>Teilen</b> <i class="ph ph-export"></i></li>
         <li>Wähle <b>Zum Home-Bildschirm</b> <i class="ph ph-plus-square"></i></li>
