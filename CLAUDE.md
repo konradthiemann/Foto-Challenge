@@ -194,3 +194,19 @@ must be configured per machine — they are never committed.
 - **Image optimization**: sharp resize on upload (max 1920px) to save volume space
 - **Tests**: `node --test` unit tests (pricing/auth/tasks/images) — API-level integration tests next
 - **Marketing**: Landing page exists, social media accounts TBD
+- **App Store packaging** (exploratory — needs its own planning session before any code):
+  Konrad sees real potential in a proper store listing (QR code → App Store/Play Store →
+  install → login with own account → choose "Host" or "Join"). Open questions to resolve
+  first:
+  - **Native wrapper approach**: ship the existing PWA via a Trusted Web Activity /
+    installed-PWA listing (Play Store; iOS has no equivalent) vs. wrap it with something
+    like Capacitor for a real dual-platform store binary. Trade-off: TWA is nearly free to
+    ship but Android-only; Capacitor covers both stores but adds a native build pipeline.
+  - **Own account system**: today, guests join per-event via name + party password
+    (session cookie, no persistent identity) and hosts re-login via join code + host
+    password (see "Auth Model" above). A real account system (email + name + password,
+    persisted login) would let a returning user skip re-entering credentials per event —
+    this is a bigger auth rework, not a copy change.
+  - **Migration path**: existing printed QR posters link straight into the web app
+    (`joinUrl` in the `/host/:id/print` route). Any store-app rollout needs those old
+    links to keep working, or a clear cutover plan.
