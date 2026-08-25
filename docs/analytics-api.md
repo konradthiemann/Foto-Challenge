@@ -46,3 +46,24 @@ inkrementelles ETL: den höchsten gesehenen `id` als nächstes `since` verwenden
 { "events": [{ "id": 1, "eventId": "party", "type": "app_open",
               "meta": { "device": "mobile" }, "createdAt": 1750000000000 }, ...] }
 ```
+
+## `GET /api/admin/stats`
+Betriebs-/Geschäftskennzahlen (nicht die anonymen Nutzungs-Events oben,
+sondern Events/Gäste/Fotos/Umsatz selbst) — dieselbe Auth wie oben. Wird vom
+Symfony-Control-Plane-Backend für die Knips-Detailseite konsumiert
+(`KnipsAnalyticsClient::fetchStats()`), war aber bislang undokumentiert.
+```jsonc
+{
+  "totals": { "events": 6, "activeEvents": 1, "guests": 37, "photos": 73, "revenueCents": 17158 },
+  "tierCounts": { "5": 2, "30": 1, "120": 3 },
+  "days": [{ "date": "2026-08-22", "events": 1, "guests": 30, "photos": 61 }, ...],
+  "events": [{ "id": "party", "name": "Annette und Björn", "guestLimit": 5,
+               "guestCount": 30, "photoCount": 67, "priceCents": 99,
+               "createdAt": 1755835200000, "expiresAt": 1758427200000, "active": false }, ...],
+  "retentionDays": 30
+}
+```
+`tierCounts` schlüsselt nach `guestLimit`-Obergrenze der Preis-Tier (siehe
+`src/pricing.js`), nicht nach tatsächlicher Gästezahl. `days` deckt die
+letzten 30 Tage ab (`created_at` von Events/Gästen/Fotos, nicht die
+`analytics_events`-Tabelle). `events` ist auf die neuesten 100 begrenzt.
