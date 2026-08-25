@@ -20,6 +20,13 @@ export function priceCents(guests) {
   return tierForGuests(guests).cents;
 }
 
+// Admin can override the tier-computed price per event (e.g. comp a family
+// event to 0€) without changing its guest limit/tier. `overrideCents` is
+// `null`/`undefined` when no override is set — falls back to the tier price.
+export function effectivePriceCents(guests, overrideCents = null) {
+  return overrideCents ?? priceCents(guests);
+}
+
 export function formatEuro(cents) {
   if (cents === 0) return 'Kostenlos';
   return `${(cents / 100).toFixed(2).replace('.', ',')} €`;

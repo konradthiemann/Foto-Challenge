@@ -11,7 +11,7 @@ import { ZipArchive } from 'archiver';
 
 import db, { UPLOAD_DIR } from './db.js';
 import { TASKS, taskById } from './tasks.js';
-import { priceCents, tierForGuests } from './pricing.js';
+import { priceCents, tierForGuests, effectivePriceCents } from './pricing.js';
 import {
   hashPassword, verifyPassword, signToken, verifyToken, randomId,
 } from './auth.js';
@@ -468,14 +468,14 @@ app.post('/api/admin/auth', authLimiter, (req, res) => {
 
 app.get('/api/admin/stats', requireAdmin, (req, res) => {
   const now = Date.now();
-  const events = db.prepare('SELECT id, name, guest_limit, created_at, expires_at FROM events ORDER BY created_at DESC').all();
+  const events = db.prepare('SELECT id, name, guest_limit, created_at, expires_at, price_override_cents, suspended FROM events ORDER BY created_at DESC').all();
   const totalGuests = db.prepare('SELECT COUNT(*) c FROM guests').get().c;
   const totalPhotos = db.prepare('SELECT COUNT(*) c FROM photos').get().c;
 
   let revenueCents = 0;
   const tierCounts = {};
   for (const e of events) {
-    revenueCents += priceCents(e.guest_limit);
+    revenueCents += effectivePriceCents(e.guest_limit, e.price_override_cents);
     const label = tierForGuests(e.guest_limit).upTo;
     tierCounts[label] = (tierCounts[label] || 0) + 1;
   }
@@ -489,7 +489,9 @@ app.get('/api/admin/stats', requireAdmin, (req, res) => {
     guestLimit: e.guest_limit,
     guestCount: gc.get(e.id).c,
     photoCount: pc.get(e.id).c,
-    priceCents: priceCents(e.guest_limit),
+    priceCents: effectivePriceCents(e.guest_limit, e.price_override_cents),
+    priceOverrideCents: e.price_override_cents,
+    suspended: !!e.suspended,
     createdAt: e.created_at,
     expiresAt: e.expires_at,
     active: !e.expires_at || e.expires_at > now,
@@ -575,6 +577,44 @@ app.delete('/api/admin/events/:id', requireAdmin, (req, res) => {
   res.json({ ok: true });
 });
 
+// Admin kann einzelne Event-Felder überschreiben — aktuell den Preis (Override
+// statt des tier-berechneten Preises, z. B. um ein Familienfest zu erlassen)
+// und suspended (pausiert Beitritt/Upload, ohne etwas zu löschen — z. B. bei
+// einem Gast, der sich danebenbenimmt). Partielles Update: nur mitgesendete
+// Felder ändern sich.
+app.patch('/api/admin/events/:id', requireAdmin, (req, res) => {
+  const ev = db.prepare('SELECT id, guest_limit, price_override_cents, suspended FROM events WHERE id = ?').get(req.params.id);
+  if (!ev) return res.status(404).json({ error: 'not_found' });
+
+  let priceOverrideCents = ev.price_override_cents;
+  if (Object.prototype.hasOwnProperty.call(req.body, 'priceOverrideCents')) {
+    const raw = req.body.priceOverrideCents;
+    if (raw === null) {
+      priceOverrideCents = null;
+    } else if (Number.isInteger(raw) && raw >= 0) {
+      priceOverrideCents = raw;
+    } else {
+      return res.status(400).json({ error: 'invalid_price' });
+    }
+  }
+
+  let { suspended } = ev;
+  if (Object.prototype.hasOwnProperty.call(req.body, 'suspended')) {
+    suspended = req.body.suspended ? 1 : 0;
+  }
+
+  db.prepare('UPDATE events SET price_override_cents = ?, suspended = ? WHERE id = ?').run(priceOverrideCents, suspended, ev.id);
+  console.log(`[update] admin updated event ${ev.id} (price_override_cents=${priceOverrideCents}, suspended=${suspended})`);
+
+  res.json({
+    id: ev.id,
+    guestLimit: ev.guest_limit,
+    priceOverrideCents,
+    priceCents: effectivePriceCents(ev.guest_limit, priceOverrideCents),
+    suspended: !!suspended,
+  });
+});
+
 // ─────────────────────────────────────────────────────────────────────────
 // API — events / guests
 // ─────────────────────────────────────────────────────────────────────────
@@ -591,12 +631,17 @@ app.get('/api/events/:id/info', (req, res) => {
     guestCount: guestCount(ev.id),
     requiresPassword: !!ev.guest_password_hash,
     full: guestCount(ev.id) >= ev.guest_limit,
+    suspended: !!ev.suspended,
   });
 });
 
 app.post('/api/events/:id/join', joinLimiter, (req, res) => {
   const ev = getEvent(req.params.id);
   if (!ev) return res.status(404).json({ error: 'not_found' });
+  if (ev.suspended) {
+    logEvent('join_fail', ev.id, { reason: 'suspended' });
+    return res.status(403).json({ error: 'suspended' });
+  }
 
   const name = String(req.body.name || '').trim().slice(0, 40);
   const password = String(req.body.password || '');
@@ -679,6 +724,10 @@ app.post('/api/events/:id/photos', requireGuest, uploadLimiter, upload.single('p
 
   const ev = getEvent(req.params.id);
   if (!ev) return res.status(404).json({ error: 'not_found' });
+  if (ev.suspended) {
+    logEvent('photo_fail', ev.id, { reason: 'suspended' });
+    return res.status(403).json({ error: 'suspended' });
+  }
   const { startMs, endMs } = uploadWindowForEvent(ev);
   const now = Date.now();
   if (now < startMs || now > endMs) {

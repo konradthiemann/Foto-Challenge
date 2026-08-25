@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { priceCents, tierForGuests, formatEuro } from '../src/pricing.js';
+import {
+  priceCents, tierForGuests, formatEuro, effectivePriceCents,
+} from '../src/pricing.js';
 
 test('priceCents: kostenlos bis 3 Gäste', () => {
   assert.equal(priceCents(1), 0);
@@ -28,6 +30,16 @@ test('priceCents: oberhalb des höchsten Tiers auf letztes Tier geklemmt', () =>
 test('tierForGuests liefert das kleinste abdeckende Tier', () => {
   assert.equal(tierForGuests(10).upTo, 15);
   assert.equal(tierForGuests(50).upTo, 60);
+});
+
+test('effectivePriceCents: ohne Override der Tier-Preis', () => {
+  assert.equal(effectivePriceCents(120), 4990);
+  assert.equal(effectivePriceCents(120, null), 4990);
+});
+
+test('effectivePriceCents: Override gewinnt, auch 0', () => {
+  assert.equal(effectivePriceCents(120, 0), 0);
+  assert.equal(effectivePriceCents(120, 500), 500);
 });
 
 test('formatEuro', () => {
