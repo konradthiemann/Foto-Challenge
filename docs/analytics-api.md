@@ -67,3 +67,24 @@ Symfony-Control-Plane-Backend für die Knips-Detailseite konsumiert
 `src/pricing.js`), nicht nach tatsächlicher Gästezahl. `days` deckt die
 letzten 30 Tage ab (`created_at` von Events/Gästen/Fotos, nicht die
 `analytics_events`-Tabelle). `events` ist auf die neuesten 100 begrenzt.
+
+**Wichtig zu `active`:** `expires_at = created_at + RETENTION_DAYS` ist
+zugleich der automatische Lösch-Zeitpunkt (stündlicher Cronjob,
+`cleanupExpiredEvents` in `src/server.js`) — es gibt **keine** separate
+Nachfrist. Ein Event mit `active: false` wird binnen der nächsten Stunde
+vollständig gelöscht (DB-Zeile + Fotos + Dateien), nicht erst nach weiteren
+30 Tagen.
+
+## `GET /api/admin/storage`
+Speicher-Auslastung der hochgeladenen Fotos auf dem Volume (`DATA_DIR/uploads`),
+nicht die SQLite-Datenbankdatei selbst.
+```jsonc
+{ "fileCount": 73, "totalBytes": 214748364 }
+```
+
+## `DELETE /api/admin/events/:id`
+Löscht ein Event unwiderruflich (DB-Zeile, Gäste, Fotos, Dateien auf dem
+Volume) — unabhängig vom Host-Passwort, gleiche Lösch-Logik wie die
+Host-Route (`DELETE /api/host/events/:id`) und die automatische
+Retention-Bereinigung. `404` wenn das Event nicht existiert, sonst
+`{ "ok": true }`.
