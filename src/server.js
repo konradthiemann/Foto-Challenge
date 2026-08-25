@@ -154,21 +154,25 @@ function generateJoinCode() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// Retention cleanup: delete expired events, their photos (cascade) and files.
+// Event deletion: removes the DB row (CASCADE covers guests/photos/task
+// rows) and the photo files on disk. Shared by retention cleanup, the host
+// self-delete route and the admin delete route.
 // ─────────────────────────────────────────────────────────────────────────
+
+function deleteEventCompletely(eventId) {
+  for (const { filename } of db.prepare('SELECT filename FROM photos WHERE event_id = ?').all(eventId)) {
+    fs.rm(path.join(UPLOAD_DIR, filename), { force: true }, () => {});
+  }
+  db.prepare('DELETE FROM events WHERE id = ?').run(eventId); // CASCADE removes guests, photos, task rows
+}
 
 function cleanupExpiredEvents() {
   const now = Date.now();
   const expired = db.prepare('SELECT id FROM events WHERE expires_at IS NOT NULL AND expires_at <= ?').all(now);
   if (!expired.length) return 0;
 
-  const filesFor = db.prepare('SELECT filename FROM photos WHERE event_id = ?');
-  const delEvent = db.prepare('DELETE FROM events WHERE id = ?');
   for (const { id } of expired) {
-    for (const { filename } of filesFor.all(id)) {
-      fs.rm(path.join(UPLOAD_DIR, filename), { force: true }, () => {});
-    }
-    delEvent.run(id); // ON DELETE CASCADE removes guests, photos, task rows
+    deleteEventCompletely(id);
   }
   console.log(`[retention] deleted ${expired.length} expired event(s)`);
   return expired.length;
@@ -421,10 +425,7 @@ app.post('/api/host/events/:id/resend-email', requireHost, async (req, res) => {
 // Host can permanently delete their event + all photos.
 app.delete('/api/host/events/:id', requireHost, (req, res) => {
   const ev = req.event;
-  for (const { filename } of db.prepare('SELECT filename FROM photos WHERE event_id = ?').all(ev.id)) {
-    fs.rm(path.join(UPLOAD_DIR, filename), { force: true }, () => {});
-  }
-  db.prepare('DELETE FROM events WHERE id = ?').run(ev.id); // CASCADE
+  deleteEventCompletely(ev.id);
   console.log(`[delete] host deleted event ${ev.id} (${ev.name})`);
   res.json({ ok: true });
 });
@@ -542,6 +543,36 @@ app.get('/api/admin/analytics/raw', requireAdmin, (req, res) => {
   const sinceId = parseInt(req.query.since, 10) || 0;
   const limit = parseInt(req.query.limit, 10) || 500;
   res.json({ events: rawEvents({ sinceId, limit }) });
+});
+
+// Speicher-Auslastung der hochgeladenen Fotos (Volume, nicht die DB selbst).
+app.get('/api/admin/storage', requireAdmin, async (req, res) => {
+  let fileCount = 0;
+  let totalBytes = 0;
+  try {
+    const names = await fs.promises.readdir(UPLOAD_DIR);
+    for (const name of names) {
+      const stats = await fs.promises.stat(path.join(UPLOAD_DIR, name));
+      if (stats.isFile()) {
+        fileCount += 1;
+        totalBytes += stats.size;
+      }
+    }
+  } catch (err) {
+    if (err.code !== 'ENOENT') throw err;
+  }
+  res.json({ fileCount, totalBytes });
+});
+
+// Admin kann jedes Event unwiderruflich löschen (z. B. Test-/Spam-Events),
+// unabhängig vom Host-Passwort. Gleiche Lösch-Logik wie die Host-Route und
+// die automatische Retention-Bereinigung.
+app.delete('/api/admin/events/:id', requireAdmin, (req, res) => {
+  const ev = db.prepare('SELECT id, name FROM events WHERE id = ?').get(req.params.id);
+  if (!ev) return res.status(404).json({ error: 'not_found' });
+  deleteEventCompletely(ev.id);
+  console.log(`[delete] admin deleted event ${ev.id} (${ev.name})`);
+  res.json({ ok: true });
 });
 
 // ─────────────────────────────────────────────────────────────────────────
