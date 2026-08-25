@@ -59,6 +59,7 @@ Symfony-Control-Plane-Backend für die Knips-Detailseite konsumiert
   "days": [{ "date": "2026-08-22", "events": 1, "guests": 30, "photos": 61 }, ...],
   "events": [{ "id": "party", "name": "Annette und Björn", "guestLimit": 5,
                "guestCount": 30, "photoCount": 67, "priceCents": 99,
+               "priceOverrideCents": null, "suspended": false,
                "createdAt": 1755835200000, "expiresAt": 1758427200000, "active": false }, ...],
   "retentionDays": 30
 }
@@ -88,3 +89,25 @@ Volume) — unabhängig vom Host-Passwort, gleiche Lösch-Logik wie die
 Host-Route (`DELETE /api/host/events/:id`) und die automatische
 Retention-Bereinigung. `404` wenn das Event nicht existiert, sonst
 `{ "ok": true }`.
+
+## `PATCH /api/admin/events/:id`
+Überschreibt einzelne Event-Felder händisch — partielles Update, nur
+mitgesendete Felder ändern sich.
+```jsonc
+{ "priceOverrideCents": 0, "suspended": true }
+```
+- `priceOverrideCents` (`number|null`): überschreibt den tier-berechneten
+  Preis (`src/pricing.js#priceCents`), z. B. um ein Familienfest auf 0€ zu
+  setzen. `null` löscht den Override (zurück zum Tier-Preis). Muss ein
+  nicht-negativer Integer sein, sonst `400 {error: "invalid_price"}`. Der
+  Tier-**Label** (`tierCounts` in `/api/admin/stats`) bleibt unverändert am
+  tatsächlichen `guest_limit` — nur der Preis selbst wird übersteuert.
+- `suspended` (`boolean`): pausiert das Event — blockiert **neue** Beitritte
+  (`POST /api/events/:id/join` → `403 {error: "suspended"}`) und **neue**
+  Uploads (`POST /api/events/:id/photos` → `403 {error: "suspended"}`).
+  Bestehende Gäste/Fotos/Galerie bleiben unangetastet, nichts wird gelöscht.
+  Unabhängig vom retention-basierten `active`/`expiresAt` — ein pausiertes
+  Event läuft trotzdem regulär nach 30 Tagen ab.
+
+`404` wenn das Event nicht existiert, sonst das aktualisierte Event
+(`id`, `guestLimit`, `priceOverrideCents`, `priceCents`, `suspended`).

@@ -88,6 +88,17 @@ if (!eventCols.some((c) => c.name === 'host_email')) {
 if (!eventCols.some((c) => c.name === 'event_date')) {
   db.exec('ALTER TABLE events ADD COLUMN event_date TEXT');
 }
+// Migration: admin can manually override the tier-computed price (e.g. comp a
+// family event) — null means "use the tier price", not "free".
+if (!eventCols.some((c) => c.name === 'price_override_cents')) {
+  db.exec('ALTER TABLE events ADD COLUMN price_override_cents INTEGER');
+}
+// Migration: admin can pause an event (blocks new joins/uploads, e.g. a guest
+// misbehaving) without deleting anything — independent of the retention-based
+// `expires_at`/active concept.
+if (!eventCols.some((c) => c.name === 'suspended')) {
+  db.exec('ALTER TABLE events ADD COLUMN suspended INTEGER NOT NULL DEFAULT 0');
+}
 // Migration: consent timestamp on guests (DSGVO accountability).
 const guestCols = db.prepare('PRAGMA table_info(guests)').all();
 if (!guestCols.some((c) => c.name === 'consented_at')) {
