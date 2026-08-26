@@ -17,7 +17,7 @@ import {
 } from './auth.js';
 import { sendEventCreatedEmail } from './mailer.js';
 import {
-  berlinDateString, uploadWindowForEvent, isDayAfterPhase,
+  berlinDateString, berlinHour, uploadWindowForEvent, isDayAfterPhase,
 } from './dateutil.js';
 import rateLimit from 'express-rate-limit';
 import { processAndStore } from './images.js';
@@ -520,6 +520,15 @@ app.get('/api/admin/stats', requireAdmin, (req, res) => {
     });
   }
 
+  // Tageszeit-Verteilung (0-23 Uhr, Europe/Berlin) über ALLE Fotos hinweg —
+  // beantwortet "wann werden im Schnitt die meisten Fotos gemacht", unabhängig
+  // vom Kalendertag. Bewusst nicht auf die letzten 30 Tage beschränkt wie
+  // `days` oben, da hier die Verteilung über möglichst viele Events zählt.
+  const photosByHour = Array.from({ length: 24 }, (_, hour) => ({ hour, count: 0 }));
+  for (const p of phAll) {
+    photosByHour[berlinHour(p.created_at)].count += 1;
+  }
+
   res.json({
     totals: {
       events: events.length,
@@ -530,6 +539,7 @@ app.get('/api/admin/stats', requireAdmin, (req, res) => {
     },
     tierCounts,
     days,
+    photosByHour,
     events: eventRows.slice(0, 100),
     retentionDays: RETENTION_DAYS,
   });

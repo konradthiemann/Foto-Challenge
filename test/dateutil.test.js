@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  berlinDateString, berlinMidnightUTC, uploadWindowForEvent, isDayAfterPhase,
+  berlinDateString, berlinMidnightUTC, berlinHour, uploadWindowForEvent, isDayAfterPhase,
 } from '../src/dateutil.js';
 
 test('berlinDateString: liefert den Berlin-Kalendertag als YYYY-MM-DD', () => {
@@ -17,6 +17,18 @@ test('berlinMidnightUTC: Winterzeit (CET, UTC+1)', () => {
 
 test('berlinMidnightUTC: Sommerzeit (CEST, UTC+2)', () => {
   assert.equal(berlinMidnightUTC('2026-07-15'), Date.parse('2026-07-14T22:00:00Z'));
+});
+
+test('berlinHour: Winterzeit (CET, UTC+1) — 22:30Z ist 23 Uhr Berlin', () => {
+  assert.equal(berlinHour(Date.parse('2026-01-15T22:30:00Z')), 23);
+});
+
+test('berlinHour: Sommerzeit (CEST, UTC+2) — 22:30Z ist 00 Uhr Berlin (Folgetag)', () => {
+  assert.equal(berlinHour(Date.parse('2026-07-15T22:30:00Z')), 0);
+});
+
+test('berlinHour: Mittag bleibt Mittag unabhängig von der Zeitzone', () => {
+  assert.equal(berlinHour(Date.parse('2026-07-15T10:00:00Z')), 12);
 });
 
 test('uploadWindowForEvent: Fenster reicht vom Eventtag 00:00 bis Folgetag 23:59:59.999 (Berlin)', () => {

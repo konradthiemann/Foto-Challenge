@@ -55,6 +55,19 @@ export function uploadWindowForEvent(ev) {
   return { startMs, endMs };
 }
 
+// Stunde (0-23) in Europe/Berlin für einen Zeitstempel — für Tageszeit-
+// Auswertungen (z. B. "wann werden die meisten Fotos gemacht"), unabhängig
+// vom Kalendertag/-monat, daher separat von berlinDateString/-MidnightUTC.
+export function berlinHour(ms) {
+  return Number(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone: TIMEZONE,
+      hourCycle: 'h23',
+      hour: '2-digit',
+    }).formatToParts(new Date(ms)).find((p) => p.type === 'hour').value,
+  );
+}
+
 // true ab 08:00 Uhr Berlin-Zeit am Tag NACH dem Event ("Morgen danach"-Phase).
 export function isDayAfterPhase(ev) {
   const dateStr = eventDateString(ev);
