@@ -25,6 +25,7 @@ src/images.js     — Upload-Bildverarbeitung (Resize + EXIF/GPS-Strip, fail-saf
 src/imageAnnotate.js — Task-Text-Overlay fürs ZIP-Export (siehe "Do NOT remove nixpacks.toml" unten)
 src/dateutil.js   — Event-Tag-Zeitfenster + Folgetag-Phase (Europe/Berlin)
 src/analytics.js  — anonymes Nutzungs-Event-Logging + Aggregation (docs/analytics-api.md)
+src/taskStats.js  — dauerhafte, event-unabhängige Per-Task-Zähler (played/skipped/abandoned) + aggregierte taskStats-Auswertung
 
 public/index.html — SPA shell
 public/app.js     — Client-side router + all screens

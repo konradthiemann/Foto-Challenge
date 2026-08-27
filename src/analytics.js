@@ -1,4 +1,5 @@
 import db from './db.js';
+import { taskStatsSummary, TASK_STATS_MIN_EXPOSURES } from './taskStats.js';
 
 // Anonyme, aggregierte Nutzungsstatistik. Grundsätze:
 //  - keine Namen, keine Foto-Inhalte, keine IP-Adressen
@@ -59,6 +60,10 @@ export function aggregate({ eventId = null } = {}) {
     joinFailReasons: groupMeta('join_fail', 'reason'),
     uploadFailReasons: groupMeta('photo_fail', 'reason'),
     devices: groupMeta('app_open', 'device'),
+    // task_stats ist bewusst event-unabhängig (siehe src/taskStats.js) — daher
+    // hier NICHT nach `where`/eventId gefiltert, unabhängig vom ?event=-Query.
+    taskStats: taskStatsSummary(),
+    taskStatsMinExposures: TASK_STATS_MIN_EXPOSURES,
   };
 }
 

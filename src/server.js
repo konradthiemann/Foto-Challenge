@@ -10,7 +10,8 @@ import sharp from 'sharp';
 import { ZipArchive } from 'archiver';
 
 import db, { UPLOAD_DIR } from './db.js';
-import { TASKS, taskById } from './tasks.js';
+import { taskById, eligibleTaskIds } from './tasks.js';
+import { recordPlayed, recordSkipped, recordAbandonedForEvent } from './taskStats.js';
 import { priceCents, tierForGuests, effectivePriceCents } from './pricing.js';
 import {
   hashPassword, verifyPassword, signToken, verifyToken, randomId,
@@ -172,6 +173,12 @@ function cleanupExpiredEvents() {
   if (!expired.length) return 0;
 
   for (const { id } of expired) {
+    // MUST run before deleteEventCompletely: it CASCADEs guests/guest_task_done
+    // away, after which "which task did this guest never finish" is unrecoverable.
+    // Deliberately only in this automatic retention path, not inside
+    // deleteEventCompletely itself — a manual host/admin delete is not a guest
+    // abandoning the challenge and would otherwise pollute the signal.
+    recordAbandonedForEvent(id);
     deleteEventCompletely(id);
   }
   console.log(`[retention] deleted ${expired.length} expired event(s)`);
@@ -197,15 +204,12 @@ function photoCount(eventId) {
 function assignNextTask(guestId, eventId, avoidId = null) {
   const ev = getEvent(eventId);
   const wantDayAfter = isDayAfterPhase(ev);
-  const phaseOk = (i) => (TASKS[i].phase === 'day-after') === wantDayAfter;
 
-  const done = new Set(
+  const doneIds = new Set(
     db.prepare('SELECT task_id FROM guest_task_done WHERE guest_id = ?')
       .all(guestId).map((r) => r.task_id),
   );
-  let pool = TASKS.map((_, i) => i).filter((i) => !done.has(i) && i !== avoidId && phaseOk(i));
-  if (pool.length === 0) pool = TASKS.map((_, i) => i).filter((i) => i !== avoidId && phaseOk(i));
-  if (pool.length === 0) pool = TASKS.map((_, i) => i).filter((i) => phaseOk(i));
+  const pool = eligibleTaskIds({ doneIds, avoidId, wantDayAfter });
   const taskId = pool[Math.floor(Math.random() * pool.length)];
   db.prepare('UPDATE guests SET current_task_id = ? WHERE id = ?').run(taskId, guestId);
   return taskId;
@@ -723,7 +727,8 @@ app.get('/api/events/:id/me', requireGuest, (req, res) => {
 app.post('/api/events/:id/task/rotate', requireGuest, (req, res) => {
   const skipped = req.guest.current_task_id;
   const taskId = assignNextTask(req.guest.id, req.params.id, skipped);
-  logEvent('task_rotate', req.params.id, { cat: taskById(skipped)?.cat || null });
+  logEvent('task_rotate', req.params.id, { cat: taskById(skipped)?.cat || null, taskId: skipped });
+  recordSkipped(skipped);
   res.json({ task: taskById(taskId) });
 });
 
@@ -764,7 +769,8 @@ app.post('/api/events/:id/photos', requireGuest, uploadLimiter, upload.single('p
   db.prepare('INSERT OR IGNORE INTO guest_task_done (guest_id, task_id) VALUES (?, ?)')
     .run(req.guest.id, taskId);
 
-  logEvent('photo_upload', req.params.id, { cat: taskById(taskId)?.cat || null, processed });
+  logEvent('photo_upload', req.params.id, { cat: taskById(taskId)?.cat || null, processed, taskId });
+  recordPlayed(taskId);
   res.json({ photo: { id: photoId, task: taskById(taskId) } });
 });
 

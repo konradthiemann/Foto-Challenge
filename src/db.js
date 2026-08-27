@@ -65,6 +65,20 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS idx_analytics_event ON analytics_events(event_id, created_at);
   CREATE INDEX IF NOT EXISTS idx_analytics_type ON analytics_events(type, created_at);
+
+  -- Dauerhafte, event-unabhängige Task-Zähler (src/taskStats.js). Reine
+  -- Integer-Zähler pro task_id — keine Namen, keine Fotos, keine IPs, kein
+  -- Event- oder Personenbezug — deshalb bewusst NICHT an ein Event gekoppelt
+  -- und unabhängig von der analytics_events-Retention (ON DELETE CASCADE
+  -- oben): eine Aufgabe soll über viele Partys hinweg aussagekräftig bleiben,
+  -- statt mit jedem Event wieder auf 0 zu fallen.
+  CREATE TABLE IF NOT EXISTS task_stats (
+    task_id         INTEGER PRIMARY KEY,
+    played_count    INTEGER NOT NULL DEFAULT 0,
+    skipped_count   INTEGER NOT NULL DEFAULT 0,
+    abandoned_count INTEGER NOT NULL DEFAULT 0,
+    updated_at      INTEGER
+  );
 `);
 
 // Migration: add join_code to events created before short codes existed.

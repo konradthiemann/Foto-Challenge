@@ -18,8 +18,8 @@ Erst `POST /api/admin/auth` mit `{ "token": "<ADMIN_TOKEN>" }` → setzt das
 | `app_open` | Event-Seite geladen (`/api/events/:id/info`) | `{ device: "mobile"\|"tablet"\|"desktop" }` |
 | `join_success` | Gast erfolgreich beigetreten | — |
 | `join_fail` | Beitritt abgelehnt | `{ reason }` (z. B. `bad_password`, `consent_required`, `full`) |
-| `task_rotate` | Aufgabe übersprungen | `{ cat }` (Kategorie der übersprungenen Aufgabe) |
-| `photo_upload` | Foto hochgeladen | `{ cat, processed }` (`processed=false` = Original-Fallback) |
+| `task_rotate` | Aufgabe übersprungen | `{ cat, taskId }` (Kategorie + stabile id der übersprungenen Aufgabe, siehe `src/tasks.js`) |
+| `photo_upload` | Foto hochgeladen | `{ cat, processed, taskId }` (`processed=false` = Original-Fallback, `taskId` = stabile id der gespielten Aufgabe) |
 | `photo_fail` | Upload fehlgeschlagen | `{ reason }` |
 | `photo_delete` | Foto gelöscht | `{ by: "host"\|"guest" }` |
 | `gallery_view` | Galerie geöffnet | — |
@@ -35,9 +35,53 @@ Aggregierte Kennzahlen (optional für ein Event). Antwort:
   "skipsByCategory":   [{ "cat": "Der Zufall", "count": 8 }, ...],
   "joinFailReasons":   [{ "reason": "bad_password", "count": 3 }, ...],
   "uploadFailReasons": [{ "reason": "file_too_large", "count": 1 }, ...],
-  "devices":           [{ "device": "mobile", "count": 38 }, ...]
+  "devices":           [{ "device": "mobile", "count": 38 }, ...],
+  "taskStats": [
+    { "taskId": 88, "cat": "Die Geste", "text": "Findet jemanden, dem ihr für etwas danken möchtet, und macht ein Dankeschön-Foto.",
+      "playedCount": 12, "skippedCount": 40, "abandonedCount": 3,
+      "exposures": 55, "playRate": 0.2308, "abandonRate": 0.0545 },
+    ...
+  ],
+  "taskStatsMinExposures": 20
 }
 ```
+
+### Task-Statistik (`taskStats`/`taskStatsMinExposures`)
+
+`taskStats` ist eine **event-unabhängige** Auswertung der `task_stats`-Tabelle
+(siehe `src/taskStats.js`) — pro Aufgabe (`taskId`, stabile id aus
+`src/tasks.js`, siehe AC1 in `specs/task-performance-analytics.md`):
+`playedCount` (Foto hochgeladen), `skippedCount` (übersprungen),
+`abandonedCount` (Absprung, s. u.), `exposures = playedCount + skippedCount +
+abandonedCount`, `playRate = playedCount / (playedCount + skippedCount)`
+und `abandonRate = abandonedCount / exposures` (jeweils `null` bei
+Nenner `0`, auf 4 Nachkommastellen gerundet). Standardmäßig aufsteigend nach
+`playRate` sortiert (schlechteste zuerst, `null` ans Ende, Tiebreak
+`exposures` absteigend, dann `taskId`).
+
+- **`?event=<id>` filtert `taskStats` NICHT** — die Zähler sind bewusst nicht
+  an ein einzelnes Event gebunden (siehe AC3), damit die Statistik über viele
+  Partys hinweg aussagekräftig bleibt, statt mit jedem Event auf 0 zu fallen.
+- **Kein Backfill:** Die Zähler starten bei 0 ab dem Deploy dieses Features —
+  ältere `analytics_events` fließen nicht rückwirkend ein.
+- **Absprung-Definition:** Eine Aufgabe zählt als Absprungpunkt eines Gastes,
+  wenn dessen zuletzt zugewiesene Aufgabe (`guests.current_task_id`) beim
+  automatischen Retention-Ablauf des Events noch nicht als erledigt vermerkt
+  war (`cleanupExpiredEvents`, VOR dem `ON DELETE CASCADE`). Ein manuelles
+  Löschen eines Events (Host- oder Admin-Route) zählt **nicht** als Absprung —
+  das wäre kein Signal über die Aufgabe, sondern eine bewusste Aktion.
+- **Struktureller Bias (bekannte, akzeptierte Einschränkung):** Die zuletzt
+  zugewiesene Aufgabe jedes Gastes trägt einen strukturellen Bias ("die Party
+  ist einfach zu Ende", nicht zwingend "die Aufgabe war schlecht") — da die
+  Zuweisung zufällig erfolgt, trifft das über viele Partys hinweg alle
+  Aufgaben etwa gleich stark. `abandonRate` ist daher primär als
+  **Vergleichswert zwischen Aufgaben** zu lesen, nicht als absolute Quote
+  (Details: `specs/task-performance-analytics.md`, AC4).
+- `taskStatsMinExposures` (aktuell `20`) ist die vom Backend empfohlene
+  Mindest-Stichprobengröße, bevor eine Aufgabe in eine Rangliste
+  aufgenommen werden sollte (zu wenig Daten darunter = Rauschen) — die
+  Filterung selbst ist Sache des Konsumenten (control-plane-Dashboard),
+  `taskStats` liefert bewusst alle vorhandenen Zeilen ungefiltert.
 
 ## `GET /api/admin/analytics/raw?since=<id>&limit=<n>`
 Rohe Events ab Cursor `id > since` (aufsteigend, `limit` ≤ 2000). Für
