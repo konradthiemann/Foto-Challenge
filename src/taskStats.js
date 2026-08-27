@@ -39,3 +39,32 @@ export function recordSkipped(taskId) {
 export function recordAbandoned(taskId, count = 1) {
   bump(taskId, { abandoned: count });
 }
+
+// Absprung-Erkennung beim Event-Ablauf (AC4): jeder Gast, dessen aktuell
+// zugewiesene Aufgabe beim Ablauf des Events noch nicht als erledigt
+// vermerkt ist, gilt für diese Aufgabe als Absprung. MUSS vor dem Löschen
+// der Event-/Gast-Zeilen aufgerufen werden (siehe server.js#cleanupExpiredEvents) —
+// danach ist die Information durch ON DELETE CASCADE weg.
+// Gibt die Anzahl gezählter Absprünge zurück (0 bei Fehler oder falls es
+// keine offenen Aufgaben (mehr) gibt).
+export function recordAbandonedForEvent(eventId) {
+  try {
+    const rows = db.prepare(`
+      SELECT g.current_task_id AS task_id, COUNT(*) AS c
+      FROM guests g
+      WHERE g.event_id = ? AND g.current_task_id IS NOT NULL
+        AND NOT EXISTS (SELECT 1 FROM guest_task_done d
+                        WHERE d.guest_id = g.id AND d.task_id = g.current_task_id)
+      GROUP BY g.current_task_id
+    `).all(eventId);
+
+    let total = 0;
+    for (const row of rows) {
+      recordAbandoned(row.task_id, row.c);
+      total += row.c;
+    }
+    return total;
+  } catch {
+    return 0;
+  }
+}
