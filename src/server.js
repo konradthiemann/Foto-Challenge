@@ -10,7 +10,7 @@ import sharp from 'sharp';
 import { ZipArchive } from 'archiver';
 
 import db, { UPLOAD_DIR } from './db.js';
-import { TASKS, taskById } from './tasks.js';
+import { taskById, eligibleTaskIds } from './tasks.js';
 import { priceCents, tierForGuests, effectivePriceCents } from './pricing.js';
 import {
   hashPassword, verifyPassword, signToken, verifyToken, randomId,
@@ -197,15 +197,12 @@ function photoCount(eventId) {
 function assignNextTask(guestId, eventId, avoidId = null) {
   const ev = getEvent(eventId);
   const wantDayAfter = isDayAfterPhase(ev);
-  const phaseOk = (i) => (TASKS[i].phase === 'day-after') === wantDayAfter;
 
-  const done = new Set(
+  const doneIds = new Set(
     db.prepare('SELECT task_id FROM guest_task_done WHERE guest_id = ?')
       .all(guestId).map((r) => r.task_id),
   );
-  let pool = TASKS.map((_, i) => i).filter((i) => !done.has(i) && i !== avoidId && phaseOk(i));
-  if (pool.length === 0) pool = TASKS.map((_, i) => i).filter((i) => i !== avoidId && phaseOk(i));
-  if (pool.length === 0) pool = TASKS.map((_, i) => i).filter((i) => phaseOk(i));
+  const pool = eligibleTaskIds({ doneIds, avoidId, wantDayAfter });
   const taskId = pool[Math.floor(Math.random() * pool.length)];
   db.prepare('UPDATE guests SET current_task_id = ? WHERE id = ?').run(taskId, guestId);
   return taskId;
