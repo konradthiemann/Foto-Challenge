@@ -1,4 +1,11 @@
 import db from './db.js';
+import { taskById } from './tasks.js';
+
+// Mindest-Stichprobengröße (Exposures = played+skipped+abandoned), unterhalb
+// derer eine Aufgabe in Ranglisten (control-plane, AC6) als zu verrauscht
+// gilt. Wird als Top-Level-Feld der aggregate()-Antwort mit ausgeliefert,
+// die Filterung selbst passiert beim Konsumenten, nicht hier.
+export const TASK_STATS_MIN_EXPOSURES = 20;
 
 // Dauerhafte, event-unabhängige Zähler pro Aufgabe (task_stats-Tabelle in
 // db.js). Grundsätze wie in analytics.js: best-effort, wirft nie — ein
@@ -67,4 +74,56 @@ export function recordAbandonedForEvent(eventId) {
   } catch {
     return 0;
   }
+}
+
+function round4(n) {
+  return Math.round(n * 10000) / 10000;
+}
+
+// Aggregierte Per-Task-Performance (AC5): reichert die reinen Zähler mit
+// cat/text aus tasks.js an und berechnet playRate/abandonRate. Event-
+// unabhängig (task_stats trägt keinen event_id-Bezug). Aufgaben, deren id
+// nicht mehr in TASKS existiert (z. B. nach künftiger Kürzung des Arrays),
+// werden ausgelassen — die DB-Zeile selbst bleibt unangetastet.
+export function taskStatsSummary() {
+  const rows = db.prepare(
+    'SELECT task_id, played_count, skipped_count, abandoned_count FROM task_stats',
+  ).all();
+
+  const summary = [];
+  for (const row of rows) {
+    const task = taskById(row.task_id);
+    if (!task) continue;
+
+    const playedCount = row.played_count;
+    const skippedCount = row.skipped_count;
+    const abandonedCount = row.abandoned_count;
+    const exposures = playedCount + skippedCount + abandonedCount;
+    const playDenom = playedCount + skippedCount;
+
+    summary.push({
+      taskId: row.task_id,
+      cat: task.cat,
+      text: task.text,
+      playedCount,
+      skippedCount,
+      abandonedCount,
+      exposures,
+      playRate: playDenom > 0 ? round4(playedCount / playDenom) : null,
+      abandonRate: exposures > 0 ? round4(abandonedCount / exposures) : null,
+    });
+  }
+
+  // Schlechteste zuerst: playRate aufsteigend, null (keine Daten) ans Ende,
+  // Tiebreak exposures absteigend (mehr Daten zuerst), dann taskId aufsteigend
+  // (deterministisch, kein Test-/UI-Flackern).
+  summary.sort((a, b) => {
+    if ((a.playRate === null) !== (b.playRate === null)) {
+      return a.playRate === null ? 1 : -1;
+    }
+    if (a.playRate !== null && a.playRate !== b.playRate) return a.playRate - b.playRate;
+    if (a.exposures !== b.exposures) return b.exposures - a.exposures;
+    return a.taskId - b.taskId;
+  });
+  return summary;
 }
