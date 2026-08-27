@@ -212,6 +212,12 @@ must be configured per machine — they are never committed.
 
 ## Roadmap (planned, not built)
 
+- **Weighted task selection**: `assignNextTask` currently picks uniformly at
+  random from the eligible pool. Once enough real party data has accumulated
+  in `task_stats` (see the task-performance-analytics feature below), popular
+  tasks should be drawn more often and weak ones less often — see
+  `specs/weighted-task-selection.md` for the full spec (deliberately deferred,
+  not yet greenlit).
 - **Payment**: Stripe Checkout for events above the free tier (>3 guests) → see
   `memory/stripe-plan.md`. On successful checkout, log a `purchase` analytics
   event with `{tier, cents}` (see `src/analytics.js`/`docs/analytics-api.md`)
